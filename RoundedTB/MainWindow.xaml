@@ -12,8 +12,9 @@
         Background="#20808080"
         d:Background="DarkGray"
         Visibility = "Visible"
-        Opacity="0.001"
+        Opacity="0"
         d:Opacity="1"
+        ShowActivated="False"
         ResizeMode="NoResize"
         >
     <!--169, 393-->

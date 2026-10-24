@@ -15,6 +15,7 @@ namespace RoundedTB
         public MainWindow mw;
         bool redrawOverride = false;
         int infrequentCount = 0;
+        int periodicRefresh = 0;
 
         public Background()
         {
@@ -408,15 +409,28 @@ namespace RoundedTB
                         }
                         mw.taskbarDetails = taskbars;
 
+                        // Explorer can reset the taskbar region during logon and
+                        // shell startup. Re-apply periodically so a transient reset
+                        // does not leave the taskbar unmodified for minutes.
+                        periodicRefresh++;
+                        if (periodicRefresh >= 50)
+                        {
+                            periodicRefresh = 0;
+                            foreach (Types.Taskbar taskbar in taskbars)
+                            {
+                                taskbar.Ignored = true;
+                            }
+                        }
 
                     System.Threading.Thread.Sleep(100);
                     }
                 }
-                catch (TypeInitializationException ex)
+                catch (Exception ex)
                 {
+                    // A shell startup race must not kill the update loop.
                     mw.interaction.AddLog(ex.Message);
-                    mw.interaction.AddLog(ex.InnerException.Message);
-                    throw ex;
+                    mw.interaction.AddLog(ex.InnerException?.Message);
+                    System.Threading.Thread.Sleep(1000);
                 }
             }
         }
