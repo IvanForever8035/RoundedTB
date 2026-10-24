@@ -331,8 +331,29 @@ namespace RoundedTB
 
                 if (mainRegion == IntPtr.Zero)
                 {
-                    // Every segment is hidden. Restore the taskbar rather than leaving
-                    // the user with an invisible and unclickable taskbar.
+                    if (settings.ShowSegmentsOnHover)
+                    {
+                        // Hover mode intentionally hides every segment at rest.
+                        // Apply an empty region so the full taskbar (including the
+                        // app list) does not flash into view during auto-hide.
+                        IntPtr emptyRegion = LocalPInvoke.CreateRectRgn(0, 0, 0, 0);
+                        if (emptyRegion != IntPtr.Zero)
+                        {
+                            LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, emptyRegion, true);
+                        }
+                        else
+                        {
+                            ResetTaskbar(taskbar, settings);
+                        }
+                        if (settings.CompositionCompat)
+                        {
+                            Interaction.UpdateTranslucentTB(taskbar.TaskbarHwnd);
+                        }
+                        return true;
+                    }
+
+                    // Every segment is hidden outside hover mode. Restore the taskbar
+                    // rather than leaving the user with an invisible taskbar.
                     ResetTaskbar(taskbar, settings);
                     return true;
                 }

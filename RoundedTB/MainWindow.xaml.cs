@@ -956,7 +956,8 @@ namespace RoundedTB
             showTrayCheckBox.IsChecked = true;
 
             showWidgetsCheckBox.IsEnabled = true;
-            showWidgetsCheckBox.IsChecked = true;
+            // Leave the widgets segment unchecked: its hard-coded 168px region
+            // overlaps the app icons when the app segment is hidden.
         }
 
         private void taskbarRectStandIn_Click(object sender, RoutedEventArgs e)

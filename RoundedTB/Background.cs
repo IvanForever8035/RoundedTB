@@ -150,15 +150,21 @@ namespace RoundedTB
                                         settings.ShowTray = false;
                                     }
 
-                                    if (isHoveringOverWidgets && !settings.ShowWidgets)
+                                    // The widgets segment is a hard-coded 168px strip on
+                                    // the left. When the app segment is hidden that strip
+                                    // overlaps the app icons, so do not reveal it on hover.
+                                    if (showAppList)
                                     {
-                                        settings.ShowWidgets = true;
-                                        taskbars[current].Ignored = true;
-                                    }
-                                    else if (!isHoveringOverWidgets)
-                                    {
-                                        taskbars[current].Ignored = true;
-                                        settings.ShowWidgets = false;
+                                        if (isHoveringOverWidgets && !settings.ShowWidgets)
+                                        {
+                                            settings.ShowWidgets = true;
+                                            taskbars[current].Ignored = true;
+                                        }
+                                        else if (!isHoveringOverWidgets)
+                                        {
+                                            taskbars[current].Ignored = true;
+                                            settings.ShowWidgets = false;
+                                        }
                                     }
 
                                 }
