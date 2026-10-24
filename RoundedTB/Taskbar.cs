@@ -497,7 +497,9 @@ namespace RoundedTB
                     return 0;
                 }
 
-                Condition condition = new PropertyCondition(AutomationElement.ClassNameProperty, "Taskbar.TaskListButtonAutomationPeer");
+                System.Windows.Automation.Condition condition = new System.Windows.Automation.PropertyCondition(
+                    AutomationElement.ClassNameProperty,
+                    "Taskbar.TaskListButtonAutomationPeer");
                 AutomationElementCollection buttons = bridge.FindAll(TreeScope.Descendants, condition);
 
                 double right = 0;
