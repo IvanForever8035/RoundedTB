@@ -65,6 +65,14 @@ namespace RoundedTB
 
             InitializeComponent();
 
+            // WPF-UI's TitleBar calls Application.Shutdown() by default when
+            // ApplicationNavigation is true. That bypasses OnClosing, so the
+            // keep-in-background setting never runs and the tray icon is removed.
+            mainTitleBar.CloseActionOverride = (titleBar, window) => Close();
+
+            // Left click or double click on the tray icon opens the settings window.
+            mainTitleBar.NotifyIconClick += NotifyIcon_Open;
+            mainTitleBar.NotifyIconDoubleClick += NotifyIcon_Open;
 
             // Check OS build, as behaviours rather-annoyingly differ between Windows 11 and Windows 10
             RegistryKey registryKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
@@ -624,6 +632,24 @@ namespace RoundedTB
             shouldReallyDieNoReally = true;
 
             Close();
+        }
+
+        private void NotifyIcon_Open(object sender, RoutedEventArgs e)
+        {
+            if (!IsVisible)
+            {
+                Visibility = Visibility.Visible;
+            }
+
+            if (WindowState == WindowState.Minimized)
+            {
+                WindowState = WindowState.Normal;
+            }
+
+            ShowMenuItem.Header = "Hide RoundedTB";
+            Activate();
+            Topmost = true;
+            Topmost = false;
         }
 
         public void ShowMenuItem_Click(object sender, RoutedEventArgs e)
