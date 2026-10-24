@@ -8,7 +8,7 @@
         xmlns:wpfui="clr-namespace:WPFUI.Controls;assembly=WPFUI"
         mc:Ignorable="d"
         Style="{StaticResource UiWindow}"
-        Title="RoundedTB" Height="458" Width="718" MinWidth="500" MinHeight="320"
+        Title="RoundedTB" Height="486" Width="718" MinWidth="500" MinHeight="320"
         Background="#20808080"
         d:Background="DarkGray"
         Visibility = "Visible"
@@ -36,7 +36,7 @@
         </wpfui:TitleBar>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-            <Grid MinWidth="700" MinHeight="407">
+            <Grid MinWidth="700" MinHeight="435">
 
             <Grid Margin="0,0,10,0" HorizontalAlignment="Right" Width="202" Height="55" VerticalAlignment="Top">
                 <Label x:Name="cornerRadiusLabel" Content="Corner radius" HorizontalAlignment="Left" VerticalAlignment="Top"/>
@@ -53,17 +53,17 @@
             <CheckBox x:Name="showTrayCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether this segment appears when hovered" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
             <CheckBox x:Name="showWidgetsCheckBox" Content="Show this segment" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
             <CheckBox x:Name="showAppListCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether the app segment appears when hovered" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden" Unchecked="showAppListCheckBox_Unchecked"/>
-            <CheckBox x:Name="keepRunningCheckBox" Content="Keep running when closed" ToolTip="Hide to the tray instead of exiting when this window is closed" Margin="0,240,10,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="220" Click="KeepRunning_Clicked"/>
 
             <CheckBox x:Name="centredCheckBox" Content="Centred taskbar?" Margin="10,62,0,0" VerticalAlignment="Top" Visibility="Hidden"/>
             <Button x:Name="splitHelpButton" Opacity="0.001" Content="Click me!"  Margin="107,122,0,0" Click="splitHelpButton_Click"  Height="32" Width="94" VerticalAlignment="Top" FontWeight="Normal" FontFamily="Segoe UI Semibold" Visibility="Hidden"/>
 
-            <Grid Width="500" Margin="15,0,0,15" HorizontalAlignment="Left" Height="140" VerticalAlignment="Bottom">
+            <Grid Width="500" Margin="15,0,0,15" HorizontalAlignment="Left" Height="168" VerticalAlignment="Bottom">
                 <CheckBox x:Name="dynamicCheckBox" Content="Dynamic mode" ToolTip="Global layout mode: split the taskbar into independent segments" Margin="0,0,0,0" Checked="dynamicCheckBox_Checked" Unchecked="dynamicCheckBox_Unchecked" VerticalAlignment="Top" Visibility="Visible" HorizontalAlignment="Left" Width="150"/>
                 <CheckBox x:Name="showSegmentsOnHoverCheckBox" Content="Show segments only when hovered (slower)" ToolTip="Show segments only when hovered over with the mouse - performance issues" Margin="0,28,0,0" VerticalAlignment="Top" Checked="showSegmentsOnHoverCheckBox_Checked" Unchecked="showSegmentsOnHoverCheckBox_Unchecked" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment, VerticalAlignment"/>
                 <CheckBox x:Name="fillMaximisedCheckBox" Content="When a window is maximised, restore the taskbar" Margin="0,56,0,0" Checked="fillMaximisedCheckBox_Checked"  Unchecked="fillMaximisedCheckBox_Unchecked"  VerticalAlignment="Top" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment, VerticalAlignment"/>
                 <CheckBox x:Name="fillAltTabCheckBox" Content="When alt+tab or win+tab is pressed, restore the taskbar" Margin="0,84,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment"/>
                 <CheckBox x:Name="compositionFixCheckBox" Content="Improve TranslucentTB compatibility" ToolTip="Improve compatibility with TranslucentTB and other mods (may cause flickering)" Margin="0,112,0,0" VerticalAlignment="Top" IsChecked="False" Checked="compositionFixCheckBox_Checked" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment, VerticalAlignment"/>
+                <CheckBox x:Name="keepRunningCheckBox" Content="Keep running when closed" ToolTip="Hide to the tray instead of exiting when this window is closed" Margin="0,140,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="220" Click="KeepRunning_Clicked"/>
             </Grid>
 
             <Grid Width="202" Height="110" Margin="0,70,10,0" HorizontalAlignment="Right" VerticalAlignment="Top">
