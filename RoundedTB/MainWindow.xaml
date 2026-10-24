@@ -48,7 +48,6 @@
             <wpfui:Button x:Name="aboutButton" Appearance="Secondary" Margin="0,0,10,47" VerticalAlignment="Bottom" Content="Help" Click="aboutButton_Click" FontWeight="Normal" HorizontalAlignment="Right" Width="133" Height="31"/>
             <wpfui:Button x:Name="applyButton" Margin="0,0,10,10" VerticalAlignment="Bottom" Content="Apply" Click="ApplyButton_Click" FontWeight="Normal" HorizontalAlignment="Right" Width="133" Height="32"/>
 
-            <CheckBox x:Name="dynamicCheckBox" Content="Dynamic mode" ToolTip="Global layout mode: split the taskbar into independent segments" Margin="15,270,0,0" Checked="dynamicCheckBox_Checked" Unchecked="dynamicCheckBox_Unchecked" VerticalAlignment="Top" Visibility="Visible" HorizontalAlignment="Left" Width="150"/>
             <CheckBox x:Name="showTrayCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether this segment appears when hovered" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
             <CheckBox x:Name="showWidgetsCheckBox" Content="Show this segment" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
             <CheckBox x:Name="showAppListCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether the app segment appears when hovered" Margin="0,240,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden" Unchecked="showAppListCheckBox_Unchecked"/>
@@ -56,11 +55,12 @@
             <CheckBox x:Name="centredCheckBox" Content="Centred taskbar?" Margin="10,62,0,0" VerticalAlignment="Top" Visibility="Hidden"/>
             <Button x:Name="splitHelpButton" Opacity="0.001" Content="Click me!"  Margin="107,122,0,0" Click="splitHelpButton_Click"  Height="32" Width="94" VerticalAlignment="Top" FontWeight="Normal" FontFamily="Segoe UI Semibold" Visibility="Hidden"/>
 
-            <Grid Width="500" Margin="15,0,0,15" HorizontalAlignment="Left" Height="110" VerticalAlignment="Bottom">
-                <CheckBox x:Name="showSegmentsOnHoverCheckBox" Content="Show segments only when hovered (slower)" ToolTip="Show segments only when hovered over with the mouse - performance issues" Margin="0,0,0,0" VerticalAlignment="Top" Checked="showSegmentsOnHoverCheckBox_Checked" Unchecked="showSegmentsOnHoverCheckBox_Unchecked" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment, VerticalAlignment"/>
-                <CheckBox x:Name="fillMaximisedCheckBox" Content="When a window is maximised, restore the taskbar" Margin="0,30,0,0" Checked="fillMaximisedCheckBox_Checked"  Unchecked="fillMaximisedCheckBox_Unchecked"  VerticalAlignment="Top" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment, VerticalAlignment"/>
-                <CheckBox x:Name="fillAltTabCheckBox" Content="When alt+tab or win+tab is pressed, restore the taskbar" Margin="0,60,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment"/>
-                <CheckBox x:Name="compositionFixCheckBox" Content="Improve TranslucentTB compatibility" ToolTip="Improve compatibility with TranslucentTB and other mods (may cause flickering)" Margin="0,90,0,0" VerticalAlignment="Top" IsChecked="False" Checked="compositionFixCheckBox_Checked" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment, VerticalAlignment"/>
+            <Grid Width="500" Margin="15,0,0,15" HorizontalAlignment="Left" Height="140" VerticalAlignment="Bottom">
+                <CheckBox x:Name="dynamicCheckBox" Content="Dynamic mode" ToolTip="Global layout mode: split the taskbar into independent segments" Margin="0,0,0,0" Checked="dynamicCheckBox_Checked" Unchecked="dynamicCheckBox_Unchecked" VerticalAlignment="Top" Visibility="Visible" HorizontalAlignment="Left" Width="150"/>
+                <CheckBox x:Name="showSegmentsOnHoverCheckBox" Content="Show segments only when hovered (slower)" ToolTip="Show segments only when hovered over with the mouse - performance issues" Margin="0,28,0,0" VerticalAlignment="Top" Checked="showSegmentsOnHoverCheckBox_Checked" Unchecked="showSegmentsOnHoverCheckBox_Unchecked" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment, VerticalAlignment"/>
+                <CheckBox x:Name="fillMaximisedCheckBox" Content="When a window is maximised, restore the taskbar" Margin="0,56,0,0" Checked="fillMaximisedCheckBox_Checked"  Unchecked="fillMaximisedCheckBox_Unchecked"  VerticalAlignment="Top" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment, VerticalAlignment"/>
+                <CheckBox x:Name="fillAltTabCheckBox" Content="When alt+tab or win+tab is pressed, restore the taskbar" Margin="0,84,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment"/>
+                <CheckBox x:Name="compositionFixCheckBox" Content="Improve TranslucentTB compatibility" ToolTip="Improve compatibility with TranslucentTB and other mods (may cause flickering)" Margin="0,112,0,0" VerticalAlignment="Top" IsChecked="False" Checked="compositionFixCheckBox_Checked" HorizontalAlignment="Left" d:LayoutOverrides="HorizontalAlignment, VerticalAlignment"/>
             </Grid>
 
             <Grid Width="202" Height="110" Margin="0,70,10,0" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -96,7 +96,7 @@
                     <ComboBoxItem>[unavailable]</ComboBoxItem>
                 </ComboBox>
             </Grid>
-            <Rectangle HorizontalAlignment="Center" Margin="0,262,0,0" Stroke="#4C909090" Width="698" RadiusX="1" RadiusY="1.5" Height="1" VerticalAlignment="Top"/>
+            <Rectangle HorizontalAlignment="Center" Margin="0,249,0,0" Stroke="#4C909090" Width="698" RadiusX="1" RadiusY="1.5" Height="1" VerticalAlignment="Top"/>
 
         </Grid>
     </Grid>
