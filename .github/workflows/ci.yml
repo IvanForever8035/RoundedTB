@@ -2,6 +2,7 @@ name: release
 
 on:
   push:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -10,30 +11,47 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
           submodules: recursive
-          
+
+    - name: Set up .NET SDK
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: '6.0.x'
+
     - name: Set up MSBuild
-      uses: microsoft/setup-msbuild@v1
-      
+      uses: microsoft/setup-msbuild@v3
+
     - name: NuGet Restore
       run: |
         cd ${{ github.workspace }}
         nuget restore RoundedTB.sln
-      
+
     - name: Build
       run: |
         cd ${{ github.workspace }}
         msbuild "-property:Configuration=Release" -t:RoundedTB
 
+    - name: Publish self-contained
+      run: |
+        cd ${{ github.workspace }}
+        msbuild RoundedTB\RoundedTB.csproj -restore -property:Configuration=Release -property:RuntimeIdentifier=win-x64 -property:SelfContained=true -property:PublishDir=${{ github.workspace }}/dist/win-x64/ -t:Publish
+
     - name: Add commit hash to output folder
       run: |
         Rename-Item -Path ".\RoundedTB\bin\Release" -NewName "RoundedTB-$(git rev-parse --short ${{ github.sha }})"
-        
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+
+    - name: Upload framework-dependent build
+      uses: actions/upload-artifact@v7
       with:
         name: rtb-artifacts
         path: |
           .\RoundedTB\bin\RoundedTB-*\
+
+    - name: Upload self-contained build
+      uses: actions/upload-artifact@v7
+      with:
+        name: rtb-selfcontained
+        path: |
+          .\dist\win-x64\
