@@ -205,7 +205,8 @@ namespace RoundedTB
                 IntPtr mainRegion = IntPtr.Zero;
                 IntPtr workingRegion = LocalPInvoke.CreateRoundRectRgn(1, 1, 1, 1, 0, 0);
                 int centredDistanceFromEdge = 0;
-                bool showAppList = settings.ShowAppList ?? true;
+                bool showAppList = (settings.ShowAppList ?? true)
+                    && (!settings.ShowSegmentsOnHover || taskbar.AppListVisible);
 
                 // Create an effective region to be applied to the taskbar for the applist
                 Types.EffectiveRegion taskbarEffectiveRegion = new Types.EffectiveRegion

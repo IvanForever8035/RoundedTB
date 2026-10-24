@@ -992,7 +992,6 @@ namespace RoundedTB
             taskbarRectStandIn.Appearance = WPFUI.Common.Appearance.Primary;
             trayRectStandIn.Appearance = WPFUI.Common.Appearance.Secondary;
             widgetsRectStandIn.Appearance = WPFUI.Common.Appearance.Secondary;
-            dynamicCheckBox.Visibility = Visibility.Visible;
             showTrayCheckBox.Visibility = Visibility.Hidden;
             showWidgetsCheckBox.Visibility = Visibility.Hidden;
             showAppListCheckBox.Visibility = activeSettings.IsDynamic ? Visibility.Visible : Visibility.Hidden;
@@ -1026,7 +1025,6 @@ namespace RoundedTB
             taskbarRectStandIn.Appearance = WPFUI.Common.Appearance.Secondary;
             trayRectStandIn.Appearance = WPFUI.Common.Appearance.Primary;
             widgetsRectStandIn.Appearance = WPFUI.Common.Appearance.Secondary;
-            dynamicCheckBox.Visibility = Visibility.Hidden;
             showTrayCheckBox.Visibility = Visibility.Visible;
             showWidgetsCheckBox.Visibility = Visibility.Hidden;
             showAppListCheckBox.Visibility = Visibility.Hidden;
@@ -1046,7 +1044,6 @@ namespace RoundedTB
             taskbarRectStandIn.Appearance = WPFUI.Common.Appearance.Secondary;
             trayRectStandIn.Appearance = WPFUI.Common.Appearance.Secondary;
             widgetsRectStandIn.Appearance = WPFUI.Common.Appearance.Primary;
-            dynamicCheckBox.Visibility = Visibility.Hidden;
             showTrayCheckBox.Visibility = Visibility.Hidden;
             showWidgetsCheckBox.Visibility = Visibility.Visible;
             showAppListCheckBox.Visibility = Visibility.Hidden;

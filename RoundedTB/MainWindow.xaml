@@ -48,10 +48,10 @@
             <wpfui:Button x:Name="aboutButton" Appearance="Secondary" Margin="0,0,10,47" VerticalAlignment="Bottom" Content="Help" Click="aboutButton_Click" FontWeight="Normal" HorizontalAlignment="Right" Width="133" Height="31"/>
             <wpfui:Button x:Name="applyButton" Margin="0,0,10,10" VerticalAlignment="Bottom" Content="Apply" Click="ApplyButton_Click" FontWeight="Normal" HorizontalAlignment="Right" Width="133" Height="32"/>
 
-            <CheckBox x:Name="dynamicCheckBox" Content="Dynamic mode" Margin="0,210,53,0" Checked="dynamicCheckBox_Checked" Unchecked="dynamicCheckBox_Unchecked" VerticalAlignment="Top" RenderTransformOrigin="1.763,4.069" Visibility="Visible" HorizontalAlignment="Right" Width="150"/>
+            <CheckBox x:Name="dynamicCheckBox" Content="Dynamic mode" ToolTip="Global layout mode: split the taskbar into independent segments" Margin="15,270,0,0" Checked="dynamicCheckBox_Checked" Unchecked="dynamicCheckBox_Unchecked" VerticalAlignment="Top" Visibility="Visible" HorizontalAlignment="Left" Width="150"/>
             <CheckBox x:Name="showTrayCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether this segment appears when hovered" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
             <CheckBox x:Name="showWidgetsCheckBox" Content="Show this segment" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
-            <CheckBox x:Name="showAppListCheckBox" Content="Show this segment" Margin="0,240,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden" Unchecked="showAppListCheckBox_Unchecked"/>
+            <CheckBox x:Name="showAppListCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether the app segment appears when hovered" Margin="0,240,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden" Unchecked="showAppListCheckBox_Unchecked"/>
 
             <CheckBox x:Name="centredCheckBox" Content="Centred taskbar?" Margin="10,62,0,0" VerticalAlignment="Top" Visibility="Hidden"/>
             <Button x:Name="splitHelpButton" Opacity="0.001" Content="Click me!"  Margin="107,122,0,0" Click="splitHelpButton_Click"  Height="32" Width="94" VerticalAlignment="Top" FontWeight="Normal" FontFamily="Segoe UI Semibold" Visibility="Hidden"/>

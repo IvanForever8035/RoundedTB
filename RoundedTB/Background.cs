@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Windows;
 using System.Windows.Threading;
+using System.Runtime.InteropServices;
 
 namespace RoundedTB
 {
@@ -18,6 +19,49 @@ namespace RoundedTB
         public Background()
         {
             mw = (MainWindow)Application.Current.MainWindow;
+        }
+
+        /// <summary>
+        /// Returns the taskbar rect as it appears on screen. With auto-hide the
+        /// window itself stays partly off-screen, so hover hit-testing against
+        /// GetWindowRect would miss the visible bar.
+        /// </summary>
+        private static LocalPInvoke.RECT GetHoverTaskbarRect(Types.Taskbar taskbar)
+        {
+            LocalPInvoke.RECT rect = taskbar.TaskbarRect;
+            try
+            {
+                IntPtr monitor = LocalPInvoke.MonitorFromWindow(taskbar.TaskbarHwnd, 2u);
+                if (monitor == IntPtr.Zero)
+                {
+                    return rect;
+                }
+
+                MonitorStuff.MONITORINFO mi = new MonitorStuff.MONITORINFO();
+                mi.cbSize = (uint)Marshal.SizeOf(mi);
+                if (!MonitorStuff.GetMonitorInfo(monitor, ref mi))
+                {
+                    return rect;
+                }
+
+                int height = rect.Bottom - rect.Top;
+                if (rect.Top >= mi.rcMonitor.Bottom - 2)
+                {
+                    // Hidden below the monitor: the visible position is flush with the bottom.
+                    rect.Top = mi.rcMonitor.Bottom - height;
+                    rect.Bottom = mi.rcMonitor.Bottom;
+                }
+                else if (rect.Bottom <= mi.rcMonitor.Top + 2)
+                {
+                    // Hidden above the monitor.
+                    rect.Top = mi.rcMonitor.Top;
+                    rect.Bottom = mi.rcMonitor.Top + height;
+                }
+            }
+            catch (Exception)
+            {
+            }
+            return rect;
         }
 
 
@@ -163,16 +207,48 @@ namespace RoundedTB
                                 continue;
                             }
 
-                            // Showhide tray on hover
+                            // Show/hide segments on hover. Each segment has its own
+                            // hit area, so the app list and tray are independent.
                             if (settings.ShowSegmentsOnHover)
                             {
+                                LocalPInvoke.GetCursorPos(out LocalPInvoke.POINT msPt);
+
+                                // Auto-hide keeps the taskbar window partly off-screen.
+                                // Use the visible position for hit-testing instead.
+                                LocalPInvoke.RECT hoverTaskbarRect = GetHoverTaskbarRect(taskbars[current]);
+
+                                // App list segment: Start plus the app buttons.
+                                LocalPInvoke.RECT currentAppRect = hoverTaskbarRect;
+                                int appLeft = hoverTaskbarRect.Left;
+                                if (settings.IsCentred)
+                                {
+                                    int centredDistance = taskbars[current].TaskbarRect.Right
+                                        - taskbars[current].AppListRect.Right
+                                        - Convert.ToInt32(2 * taskbars[current].ScaleFactor);
+                                    if (!settings.IsWindows11)
+                                    {
+                                        centredDistance -= Convert.ToInt32(20 * taskbars[current].ScaleFactor);
+                                    }
+                                    appLeft += centredDistance;
+                                }
+                                currentAppRect.Left = appLeft;
+                                currentAppRect.Right = taskbars[current].AppListRect.Right;
+                                bool appVisible = showAppList && LocalPInvoke.PtInRect(ref currentAppRect, msPt);
+                                if (taskbars[current].AppListVisible != appVisible)
+                                {
+                                    taskbars[current].AppListVisible = appVisible;
+                                    taskbars[current].Ignored = true;
+                                }
+
                                 LocalPInvoke.RECT currentTrayRect = taskbars[current].TrayRect;
-                                LocalPInvoke.RECT currentWidgetsRect = taskbars[current].TaskbarRect;
+                                int yOffset = hoverTaskbarRect.Top - taskbars[current].TaskbarRect.Top;
+                                currentTrayRect.Top += yOffset;
+                                currentTrayRect.Bottom += yOffset;
+                                LocalPInvoke.RECT currentWidgetsRect = hoverTaskbarRect;
                                 currentWidgetsRect.Right = Convert.ToInt32(currentWidgetsRect.Right - (currentWidgetsRect.Right - currentWidgetsRect.Left) + (168 * taskbars[current].ScaleFactor));
-                                
+
                                 if (currentTrayRect.Left != 0)
                                 {
-                                    LocalPInvoke.GetCursorPos(out LocalPInvoke.POINT msPt);
                                     bool isHoveringOverTray = LocalPInvoke.PtInRect(ref currentTrayRect, msPt);
                                     bool isHoveringOverWidgets = LocalPInvoke.PtInRect(ref currentWidgetsRect, msPt);
                                     bool trayHoverEnabled = settings.TrayHoverEnabled ?? true;

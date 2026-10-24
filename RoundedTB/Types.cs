@@ -23,6 +23,7 @@ namespace RoundedTB
             public bool Ignored { get; set; } // Specifies if the taskbar should be ignored when applying changes
             public bool TaskbarHidden { get; set; } // Specifies if this taskbar is currently hidden by RTB
             public bool TrayHidden { get; set; } // Specifies if the tray is currently hidden by RTB on this taskbar
+            public bool AppListVisible { get; set; } // Runtime hover state of the app list segment
             public int AppListWidth { get; set; } // Specifies the width of the app list
             public TaskbarEffect TaskbarEffectWindow { get; set; } // Unused clone to apply effects to the taskbar
         }
