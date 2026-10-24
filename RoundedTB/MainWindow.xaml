@@ -8,7 +8,7 @@
         xmlns:wpfui="clr-namespace:WPFUI.Controls;assembly=WPFUI"
         mc:Ignorable="d"
         Style="{StaticResource UiWindow}"
-        Title="RoundedTB" Height="458" Width="718"
+        Title="RoundedTB" Height="458" Width="718" MinWidth="500" MinHeight="320"
         Background="#20808080"
         d:Background="DarkGray"
         Visibility = "Visible"
@@ -34,7 +34,8 @@
             </wpfui:TitleBar.NotifyIconMenu>
         </wpfui:TitleBar>
 
-        <Grid Grid.Row="1">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+            <Grid MinWidth="700" MinHeight="407">
 
             <Grid Margin="0,0,10,0" HorizontalAlignment="Right" Width="202" Height="55" VerticalAlignment="Top">
                 <Label x:Name="cornerRadiusLabel" Content="Corner radius" HorizontalAlignment="Left" VerticalAlignment="Top"/>
@@ -50,7 +51,7 @@
 
             <CheckBox x:Name="showTrayCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether this segment appears when hovered" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
             <CheckBox x:Name="showWidgetsCheckBox" Content="Show this segment" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
-            <CheckBox x:Name="showAppListCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether the app segment appears when hovered" Margin="0,240,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden" Unchecked="showAppListCheckBox_Unchecked"/>
+            <CheckBox x:Name="showAppListCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether the app segment appears when hovered" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden" Unchecked="showAppListCheckBox_Unchecked"/>
 
             <CheckBox x:Name="centredCheckBox" Content="Centred taskbar?" Margin="10,62,0,0" VerticalAlignment="Top" Visibility="Hidden"/>
             <Button x:Name="splitHelpButton" Opacity="0.001" Content="Click me!"  Margin="107,122,0,0" Click="splitHelpButton_Click"  Height="32" Width="94" VerticalAlignment="Top" FontWeight="Normal" FontFamily="Segoe UI Semibold" Visibility="Hidden"/>
@@ -98,6 +99,7 @@
             </Grid>
             <Rectangle HorizontalAlignment="Center" Margin="0,249,0,0" Stroke="#4C909090" Width="698" RadiusX="1" RadiusY="1.5" Height="1" VerticalAlignment="Top"/>
 
-        </Grid>
+            </Grid>
+        </ScrollViewer>
     </Grid>
 </Window>
