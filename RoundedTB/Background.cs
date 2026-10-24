@@ -84,6 +84,33 @@ namespace RoundedTB
                                 }
                             });
 
+                            // Refresh the real app-button extent from the Windows 11
+                            // XAML taskbar. The legacy window stops at the first few
+                            // buttons, so poll this less often than the rects.
+                            foreach (Types.Taskbar tb in mw.taskbarDetails)
+                            {
+                                if (tb.BridgeHwnd == IntPtr.Zero)
+                                {
+                                    continue;
+                                }
+
+                                try
+                                {
+                                    int uiaRight = (int)mw.Dispatcher.Invoke(
+                                        new Func<int>(() => Taskbar.GetAppListRightFromUia(tb.BridgeHwnd)));
+                                    if (uiaRight > 0 && uiaRight != tb.AppListRect.Right)
+                                    {
+                                        LocalPInvoke.RECT appListRect = tb.AppListRect;
+                                        appListRect.Right = uiaRight;
+                                        tb.AppListRect = appListRect;
+                                        tb.Ignored = true;
+                                    }
+                                }
+                                catch (Exception)
+                                {
+                                }
+                            }
+
                             infrequentCount = 0;
                         }
 
@@ -115,6 +142,15 @@ namespace RoundedTB
                             // Get the latest quick details of this taskbar
                             Types.Taskbar newTaskbar = Taskbar.GetQuickTaskbarRects(taskbars[current].TaskbarHwnd, taskbars[current].TrayHwnd, taskbars[current].AppListHwnd);
 
+                            // Keep the UIA-measured app button right edge instead of the
+                            // (possibly much shorter) legacy MSTaskSwWClass rect.
+                            if (taskbars[current].BridgeHwnd != IntPtr.Zero && taskbars[current].AppListRect.Right > 0)
+                            {
+                                LocalPInvoke.RECT appListRect = newTaskbar.AppListRect;
+                                appListRect.Right = taskbars[current].AppListRect.Right;
+                                newTaskbar.AppListRect = appListRect;
+                            }
+
 
                             // If the taskbar's monitor has a maximised window, reset it so it's "filled"
                             if (Taskbar.TaskbarShouldBeFilled(taskbars[current].TaskbarHwnd, settings))
@@ -139,15 +175,24 @@ namespace RoundedTB
                                     LocalPInvoke.GetCursorPos(out LocalPInvoke.POINT msPt);
                                     bool isHoveringOverTray = LocalPInvoke.PtInRect(ref currentTrayRect, msPt);
                                     bool isHoveringOverWidgets = LocalPInvoke.PtInRect(ref currentWidgetsRect, msPt);
-                                    if (isHoveringOverTray && !settings.ShowTray)
+                                    bool trayHoverEnabled = settings.TrayHoverEnabled ?? true;
+                                    if (trayHoverEnabled)
                                     {
-                                        settings.ShowTray = true;
-                                        taskbars[current].Ignored = true;
+                                        if (isHoveringOverTray && !settings.ShowTray)
+                                        {
+                                            settings.ShowTray = true;
+                                            taskbars[current].Ignored = true;
+                                        }
+                                        else if (!isHoveringOverTray)
+                                        {
+                                            taskbars[current].Ignored = true;
+                                            settings.ShowTray = false;
+                                        }
                                     }
-                                    else if (!isHoveringOverTray)
+                                    else if (settings.ShowTray)
                                     {
-                                        taskbars[current].Ignored = true;
                                         settings.ShowTray = false;
+                                        taskbars[current].Ignored = true;
                                     }
 
                                     // The widgets segment is a hard-coded 168px strip on

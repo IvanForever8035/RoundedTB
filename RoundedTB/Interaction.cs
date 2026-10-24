@@ -115,6 +115,10 @@ namespace RoundedTB
             {
                 settings.ShowAppList = true;
             }
+            if (settings.TrayHoverEnabled == null)
+            {
+                settings.TrayHoverEnabled = true;
+            }
         }
 
         public bool IsWindows11()
@@ -152,6 +156,7 @@ namespace RoundedTB
                         ShowTray = false,
                         ShowWidgets = false,
                         ShowAppList = true,
+                        TrayHoverEnabled = true,
                         CompositionCompat = false,
                         IsNotFirstLaunch = false,
                         FillOnMaximise = true,
@@ -174,6 +179,7 @@ namespace RoundedTB
                         ShowTray = false,
                         ShowWidgets = false,
                         ShowAppList = true,
+                        TrayHoverEnabled = true,
                         CompositionCompat = false,
                         IsNotFirstLaunch = false,
                         FillOnMaximise = true,

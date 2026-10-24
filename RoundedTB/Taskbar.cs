@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Threading;
 using Newtonsoft.Json;
 using System.Runtime.InteropServices;
+using System.Windows.Automation;
 
 
 
@@ -477,6 +478,47 @@ namespace RoundedTB
         }
 
         /// <summary>
+        /// Reads the right edge of the real taskbar app buttons from the Windows 11
+        /// XAML content bridge. The legacy MSTaskSwWClass window only covers part
+        /// of the buttons on recent Windows 11 builds.
+        /// </summary>
+        public static int GetAppListRightFromUia(IntPtr bridgeHwnd)
+        {
+            if (bridgeHwnd == IntPtr.Zero)
+            {
+                return 0;
+            }
+
+            try
+            {
+                AutomationElement bridge = AutomationElement.FromHandle(bridgeHwnd);
+                if (bridge == null)
+                {
+                    return 0;
+                }
+
+                Condition condition = new PropertyCondition(AutomationElement.ClassNameProperty, "Taskbar.TaskListButtonAutomationPeer");
+                AutomationElementCollection buttons = bridge.FindAll(TreeScope.Descendants, condition);
+
+                double right = 0;
+                foreach (AutomationElement button in buttons)
+                {
+                    double buttonRight = button.Current.BoundingRectangle.Right;
+                    if (buttonRight > right)
+                    {
+                        right = buttonRight;
+                    }
+                }
+
+                return right > 0 ? (int)Math.Ceiling(right) : 0;
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
         /// Collects information on any currently-present taskbars.
         /// </summary>
         /// <returns>
@@ -493,12 +535,22 @@ namespace RoundedTB
             LocalPInvoke.GetWindowRect(hwndTray, out LocalPInvoke.RECT rectTray); // Get the RECT for the main taskbar's tray
             IntPtr hwndAppList = LocalPInvoke.FindWindowExA(LocalPInvoke.FindWindowExA(hwndMain, IntPtr.Zero, "ReBarWindow32", null), IntPtr.Zero, "MSTaskSwWClass", null); // Get the handle to the main taskbar's app list
             LocalPInvoke.GetWindowRect(hwndAppList, out LocalPInvoke.RECT rectAppList);// Get the RECT for the main taskbar's app list
+            IntPtr hwndBridge = LocalPInvoke.FindWindowExA(hwndMain, IntPtr.Zero, "Windows.UI.Composition.DesktopWindowContentBridge", null); // Windows 11 XAML taskbar content
+
+            // On recent Windows 11 builds the legacy app list window only covers the
+            // first few buttons; the XAML bridge has the real button positions.
+            int uiaAppListRight = GetAppListRightFromUia(hwndBridge);
+            if (uiaAppListRight > 0)
+            {
+                rectAppList.Right = uiaAppListRight;
+            }
 
             retVal.Add(new Types.Taskbar
             {
                 TaskbarHwnd = hwndMain,
                 TrayHwnd = hwndTray,
                 AppListHwnd = hwndAppList,
+                BridgeHwnd = hwndBridge,
                 TaskbarRect = rectMain,
                 TrayRect = rectTray,
                 AppListRect = rectAppList,
@@ -543,14 +595,21 @@ namespace RoundedTB
                     {
                         hwndSecTray = LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "TrayNotifyWnd", null); // Get handle to this secondary taskbar's tray
                     }
-                    LocalPInvoke.GetWindowRect(hwndTray, out LocalPInvoke.RECT rectSecTray); // Get the RECT for this secondary taskbar's tray
+                    LocalPInvoke.GetWindowRect(hwndSecTray, out LocalPInvoke.RECT rectSecTray); // Get the RECT for this secondary taskbar's tray
                     IntPtr hwndSecAppList = LocalPInvoke.FindWindowExA(LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "WorkerW", null), IntPtr.Zero, "MSTaskListWClass", null); // Get the handle to the main taskbar's app list
                     LocalPInvoke.GetWindowRect(hwndSecAppList, out LocalPInvoke.RECT rectSecAppList);// Get the RECT for this secondary taskbar's app list
+                    IntPtr hwndSecBridge = LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "Windows.UI.Composition.DesktopWindowContentBridge", null);
+                    int secUiaRight = GetAppListRightFromUia(hwndSecBridge);
+                    if (secUiaRight > 0)
+                    {
+                        rectSecAppList.Right = secUiaRight;
+                    }
                     retVal.Add(new Types.Taskbar
                     {
                         TaskbarHwnd = hwndCurrent,
                         TrayHwnd = hwndSecTray,
                         AppListHwnd = hwndSecAppList,
+                        BridgeHwnd = hwndSecBridge,
                         TaskbarRect = rectCurrent,
                         TrayRect = rectSecTray,
                         AppListRect = rectSecAppList,

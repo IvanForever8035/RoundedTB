@@ -169,6 +169,7 @@ namespace RoundedTB
                         ShowTray = false,
                         ShowWidgets = false,
                         ShowAppList = true,
+                        TrayHoverEnabled = true,
                         CompositionCompat = false,
                         IsNotFirstLaunch = false,
                         FillOnMaximise = true,
@@ -191,6 +192,7 @@ namespace RoundedTB
                         ShowTray = false,
                         ShowWidgets = false,
                         ShowAppList = true,
+                        TrayHoverEnabled = true,
                         CompositionCompat = false,
                         IsNotFirstLaunch = false,
                         FillOnMaximise = true,
@@ -288,6 +290,15 @@ namespace RoundedTB
             fillMaximisedCheckBox.IsChecked = activeSettings.FillOnMaximise;
             fillAltTabCheckBox.IsChecked = activeSettings.FillOnTaskSwitch;
             showSegmentsOnHoverCheckBox.IsChecked = activeSettings.ShowSegmentsOnHover;
+            if (activeSettings.ShowSegmentsOnHover)
+            {
+                showTrayCheckBox.IsEnabled = true;
+                showTrayCheckBox.IsChecked = activeSettings.TrayHoverEnabled ?? true;
+            }
+            else
+            {
+                showTrayCheckBox.IsChecked = activeSettings.ShowTray;
+            }
             compositionFixCheckBox.IsChecked = activeSettings.CompositionCompat;
             autoHideComboBox.SelectedIndex = activeSettings.AutoHide;
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
@@ -345,7 +356,10 @@ namespace RoundedTB
                 taskbarRectStandIn.Opacity = 1;
             }
 
-            if (!activeSettings.ShowTray || activeSettings.ShowSegmentsOnHover)
+            bool trayEnabled = activeSettings.ShowSegmentsOnHover
+                ? (activeSettings.TrayHoverEnabled ?? true)
+                : activeSettings.ShowTray;
+            if (!trayEnabled)
             {
                 trayRectStandIn.Opacity = 0.5;
             }
@@ -476,13 +490,22 @@ namespace RoundedTB
             activeSettings.AutoHide = autoHideComboBox.SelectedIndex;
             activeSettings.IsDynamic = (bool)dynamicCheckBox.IsChecked;
             activeSettings.IsCentred = Taskbar.CheckIfCentred();
-            activeSettings.ShowTray = (bool)showTrayCheckBox.IsChecked;
+            activeSettings.ShowSegmentsOnHover = (bool)showSegmentsOnHoverCheckBox.IsChecked;
+            if (activeSettings.IsDynamic && activeSettings.ShowSegmentsOnHover)
+            {
+                // In hover mode the checkbox controls whether the tray may appear
+                // on hover; the background worker owns the runtime ShowTray state.
+                activeSettings.TrayHoverEnabled = showTrayCheckBox.IsChecked == true;
+            }
+            else
+            {
+                activeSettings.ShowTray = (bool)showTrayCheckBox.IsChecked;
+            }
             activeSettings.ShowWidgets = (bool)showWidgetsCheckBox.IsChecked;
             activeSettings.ShowAppList = showAppListCheckBox.IsChecked == true;
             activeSettings.CompositionCompat = (bool)compositionFixCheckBox.IsChecked;
             activeSettings.FillOnMaximise = (bool)fillMaximisedCheckBox.IsChecked;
             activeSettings.FillOnTaskSwitch = (bool)fillAltTabCheckBox.IsChecked;
-            activeSettings.ShowSegmentsOnHover = (bool)showSegmentsOnHoverCheckBox.IsChecked;
 
             bool showAppList = activeSettings.ShowAppList ?? true;
             try
@@ -804,7 +827,9 @@ namespace RoundedTB
             showSegmentsOnHoverCheckBox.IsEnabled = true;
             showSegmentsOnHoverCheckBox.IsChecked = false;
             showTrayCheckBox.IsEnabled = true;
-            showTrayCheckBox.IsChecked = true;
+            showTrayCheckBox.IsChecked = activeSettings.ShowSegmentsOnHover
+                ? (activeSettings.TrayHoverEnabled ?? true)
+                : true;
             showAppListCheckBox.IsEnabled = true;
             if (selectedSegment == 0 || selectedSegment == 1)
             {
@@ -943,8 +968,10 @@ namespace RoundedTB
 
         private void showSegmentsOnHoverCheckBox_Checked(object sender, RoutedEventArgs e)
         {
-            showTrayCheckBox.IsEnabled = false;
-            showTrayCheckBox.IsChecked = false;
+            // Keep the tray checkbox usable: in hover mode it decides whether the
+            // tray segment participates in the hover behaviour at all.
+            showTrayCheckBox.IsEnabled = true;
+            showTrayCheckBox.IsChecked = activeSettings.TrayHoverEnabled ?? true;
 
             showWidgetsCheckBox.IsEnabled = false;
             showWidgetsCheckBox.IsChecked = false;

@@ -13,6 +13,7 @@ namespace RoundedTB
             public IntPtr TaskbarHwnd { get; set; } // Handle to the taskbar
             public IntPtr TrayHwnd { get; set; } // Handle to the tray on the taskbar (if present)
             public IntPtr AppListHwnd { get; set; } // Handle to the list of open/pinned apps on the taskbar
+            public IntPtr BridgeHwnd { get; set; } // XAML taskbar content bridge (Windows 11)
             public LocalPInvoke.RECT TaskbarRect { get; set; } // Bounding box for the taskbar
             public LocalPInvoke.RECT TrayRect { get; set; }  // Bounding box for the tray (dynamic)
             public LocalPInvoke.RECT AppListRect { get; set; } // Bounding box for the list of pinned & open apps (dynamic)
@@ -40,6 +41,8 @@ namespace RoundedTB
             public bool ShowWidgets { get; set; }
             // Nullable so configs written before this option existed default to "visible".
             public bool? ShowAppList { get; set; }
+            // In hover mode, whether the tray segment participates at all.
+            public bool? TrayHoverEnabled { get; set; }
             public bool CompositionCompat { get; set; }
             public bool IsNotFirstLaunch { get; set; }
             public bool FillOnMaximise { get; set; }
