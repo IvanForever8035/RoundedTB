@@ -27,6 +27,7 @@
             <wpfui:TitleBar.NotifyIconMenu>
                 <ContextMenu MouseEnter="ContextMenu_MouseEnter">
                     <CheckBox x:Name ="StartupCheckBox" Content="Run at startup" Click="Startup_Clicked"/>
+                    <CheckBox x:Name="KeepRunningTrayCheckBox" Content="Keep running in background" Click="KeepRunning_Clicked"/>
                     <MenuItem x:Name="DebugMenuItem" Header="Debug" Visibility ="Hidden" Click="DebugMenuItem_Click" Height="0"/>
                     <MenuItem x:Name ="ShowMenuItem" Header="Show RoundedTB" Click="ShowMenuItem_Click"/>
                     <MenuItem x:Name ="CloseMenuItem" Header="Close RoundedTB" Click="CloseMenuItem_Click"/>
@@ -52,6 +53,7 @@
             <CheckBox x:Name="showTrayCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether this segment appears when hovered" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
             <CheckBox x:Name="showWidgetsCheckBox" Content="Show this segment" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden"/>
             <CheckBox x:Name="showAppListCheckBox" Content="Show this segment" ToolTip="In hover mode, controls whether the app segment appears when hovered" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="165" Visibility="Hidden" Unchecked="showAppListCheckBox_Unchecked"/>
+            <CheckBox x:Name="keepRunningCheckBox" Content="Keep running when closed" ToolTip="Hide to the tray instead of exiting when this window is closed" Margin="0,240,10,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="220" Click="KeepRunning_Clicked"/>
 
             <CheckBox x:Name="centredCheckBox" Content="Centred taskbar?" Margin="10,62,0,0" VerticalAlignment="Top" Visibility="Hidden"/>
             <Button x:Name="splitHelpButton" Opacity="0.001" Content="Click me!"  Margin="107,122,0,0" Click="splitHelpButton_Click"  Height="32" Width="94" VerticalAlignment="Top" FontWeight="Normal" FontFamily="Segoe UI Semibold" Visibility="Hidden"/>

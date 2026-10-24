@@ -50,6 +50,8 @@ namespace RoundedTB
             public bool FillOnTaskSwitch {  get; set; }
             public bool ShowSegmentsOnHover { get; set; }
             public int AutoHide { get; set; }
+            // Keep running in the tray when the settings window is closed.
+            public bool? KeepInBackground { get; set; }
         }
 
         public class EffectiveRegion

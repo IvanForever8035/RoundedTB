@@ -175,7 +175,8 @@ namespace RoundedTB
                         FillOnMaximise = true,
                         FillOnTaskSwitch = true,
                         ShowSegmentsOnHover = false,
-                        AutoHide = 0
+                        AutoHide = 0,
+                        KeepInBackground = true
                     };
                 }
                 else // Default settings for Windows 10
@@ -198,7 +199,8 @@ namespace RoundedTB
                         FillOnMaximise = true,
                         FillOnTaskSwitch = false,
                         ShowSegmentsOnHover = false,
-                        AutoHide = 0
+                        AutoHide = 0,
+                        KeepInBackground = true
                     };
                 }
             }
@@ -301,6 +303,8 @@ namespace RoundedTB
             }
             compositionFixCheckBox.IsChecked = activeSettings.CompositionCompat;
             autoHideComboBox.SelectedIndex = activeSettings.AutoHide;
+            keepRunningCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
+            KeepRunningTrayCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
 
             ApplyButton_Click(null, null);
@@ -562,7 +566,7 @@ namespace RoundedTB
         {
             base.OnClosing(e);
 
-            if (shouldReallyDieNoReally == false)
+            if (shouldReallyDieNoReally == false && (activeSettings.KeepInBackground ?? true))
             {
                 e.Cancel = true;
                 Visibility = Visibility.Hidden;
@@ -639,6 +643,18 @@ namespace RoundedTB
                 Visibility = Visibility.Hidden;
                 ShowMenuItem.Header = "Show RoundedTB";
             }
+        }
+
+        private void KeepRunning_Clicked(object sender, RoutedEventArgs e)
+        {
+            bool keep = sender == keepRunningCheckBox
+                ? keepRunningCheckBox.IsChecked == true
+                : KeepRunningTrayCheckBox.IsChecked == true;
+
+            activeSettings.KeepInBackground = keep;
+            keepRunningCheckBox.IsChecked = keep;
+            KeepRunningTrayCheckBox.IsChecked = keep;
+            interaction.WriteJSON();
         }
 
         private async void Startup_Clicked(object sender, RoutedEventArgs e)

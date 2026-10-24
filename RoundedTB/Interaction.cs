@@ -119,6 +119,10 @@ namespace RoundedTB
             {
                 settings.TrayHoverEnabled = true;
             }
+            if (settings.KeepInBackground == null)
+            {
+                settings.KeepInBackground = true;
+            }
         }
 
         public bool IsWindows11()
@@ -162,7 +166,8 @@ namespace RoundedTB
                         FillOnMaximise = true,
                         FillOnTaskSwitch = true,
                         ShowSegmentsOnHover = false,
-                        AutoHide = 0
+                        AutoHide = 0,
+                        KeepInBackground = true
                     };
                 }
                 else
@@ -185,7 +190,8 @@ namespace RoundedTB
                         FillOnMaximise = true,
                         FillOnTaskSwitch = false,
                         ShowSegmentsOnHover = false,
-                        AutoHide = 0
+                        AutoHide = 0,
+                        KeepInBackground = true
                     };
                 }
                 
