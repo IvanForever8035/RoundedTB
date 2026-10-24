@@ -360,6 +360,7 @@ namespace RoundedTB
                 aw.ShowDialog();
                 try
                 {
+                    EnsureWindowOnScreen();
                     Visibility = Visibility.Visible;
                 }
                 catch (InvalidOperationException)
@@ -652,8 +653,21 @@ namespace RoundedTB
             Close();
         }
 
+        private void EnsureWindowOnScreen()
+        {
+            if (Left <= -10000 || Top <= -10000)
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                double width = ActualWidth > 0 ? ActualWidth : Width;
+                double height = ActualHeight > 0 ? ActualHeight : Height;
+                Left = Math.Max(0, (SystemParameters.PrimaryScreenWidth - width) / 2);
+                Top = Math.Max(0, (SystemParameters.PrimaryScreenHeight - height) / 2);
+            }
+        }
+
         private void NotifyIcon_Open(object sender, RoutedEventArgs e)
         {
+            EnsureWindowOnScreen();
             if (!IsVisible)
             {
                 Visibility = Visibility.Visible;
@@ -674,6 +688,7 @@ namespace RoundedTB
         {
             if (IsVisible == false)
             {
+                EnsureWindowOnScreen();
                 Visibility = Visibility.Visible;
                 ShowMenuItem.Header = "Hide RoundedTB";
             }

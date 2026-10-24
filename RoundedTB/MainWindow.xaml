@@ -15,6 +15,9 @@
         Opacity="0"
         d:Opacity="1"
         ShowActivated="False"
+        WindowStartupLocation="Manual"
+        Left="-32000"
+        Top="-32000"
         ResizeMode="NoResize"
         >
     <!--169, 393-->
