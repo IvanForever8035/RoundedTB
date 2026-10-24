@@ -51,6 +51,7 @@
             <CheckBox x:Name="dynamicCheckBox" Content="Dynamic mode" Margin="0,210,53,0" Checked="dynamicCheckBox_Checked" Unchecked="dynamicCheckBox_Unchecked" VerticalAlignment="Top" RenderTransformOrigin="1.763,4.069" Visibility="Visible" HorizontalAlignment="Right" Width="116"/>
             <CheckBox x:Name="showTrayCheckBox" Content="Show this segment" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="134" Visibility="Hidden"/>
             <CheckBox x:Name="showWidgetsCheckBox" Content="Show this segment" Margin="0,210,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="134" Visibility="Hidden"/>
+            <CheckBox x:Name="showAppListCheckBox" Content="Show this segment" Margin="0,240,44,0" VerticalAlignment="Top" HorizontalAlignment="Right" Width="134" Visibility="Hidden" Unchecked="showAppListCheckBox_Unchecked"/>
 
             <CheckBox x:Name="centredCheckBox" Content="Centred taskbar?" Margin="10,62,0,0" VerticalAlignment="Top" Visibility="Hidden"/>
             <Button x:Name="splitHelpButton" Opacity="0.001" Content="Click me!"  Margin="107,122,0,0" Click="splitHelpButton_Click"  Height="32" Width="94" VerticalAlignment="Top" FontWeight="Normal" FontFamily="Segoe UI Semibold" Visibility="Hidden"/>

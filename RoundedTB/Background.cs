@@ -94,6 +94,7 @@ namespace RoundedTB
                         // Work with static values to avoid some null reference exceptions
                         List<Types.Taskbar> taskbars = mw.taskbarDetails;
                         Types.Settings settings = mw.activeSettings;
+                        bool showAppList = settings.ShowAppList ?? true;
 
                         // If the number of taskbars has changed, regenerate taskbar information
                         if (Taskbar.TaskbarCountOrHandleChanged(taskbars.Count, taskbars[0].TaskbarHwnd))
@@ -255,7 +256,7 @@ namespace RoundedTB
                                 taskbars[current].Ignored = false;
                                 int isFullTest = newTaskbar.TrayRect.Left - newTaskbar.AppListRect.Right;
                                 mw.interaction.AddLog($"Taskbar: {current} - AppList ends: {newTaskbar.AppListRect.Right} - Tray starts: {newTaskbar.TrayRect.Left} - Total gap: {isFullTest}");
-                                if (!settings.IsDynamic || (isFullTest <= taskbars[current].ScaleFactor * 25 && isFullTest > 0 && newTaskbar.TrayRect.Left != 0))
+                                if (!settings.IsDynamic || (showAppList && isFullTest <= taskbars[current].ScaleFactor * 25 && isFullTest > 0 && newTaskbar.TrayRect.Left != 0))
                                 {
                                     // Add the rect changes to the temporary list of taskbars
                                     taskbars[current].TaskbarRect = newTaskbar.TaskbarRect;
@@ -266,7 +267,7 @@ namespace RoundedTB
                                 }
                                 else
                                 {
-                                    if (Taskbar.CheckDynamicUpdateIsValid(taskbars[current], newTaskbar))
+                                    if (Taskbar.CheckDynamicUpdateIsValid(taskbars[current], newTaskbar, !showAppList))
                                     {
                                         // Add the rect changes to the temporary list of taskbars
                                         taskbars[current].TaskbarRect = newTaskbar.TaskbarRect;

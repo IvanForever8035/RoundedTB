@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -30,8 +31,90 @@ namespace RoundedTB
         public Types.Settings ReadJSON()
         {
             string jsonSettings = File.ReadAllText(mw.configPath);
-            Types.Settings settings = JsonConvert.DeserializeObject<Types.Settings>(jsonSettings);
+            Types.Settings settings;
+            try
+            {
+                settings = JsonConvert.DeserializeObject<Types.Settings>(jsonSettings);
+            }
+            catch (Exception)
+            {
+                // Let the caller fall back to defaults for malformed JSON.
+                return null;
+            }
+
+            if (settings != null)
+            {
+                MigrateLegacySettings(settings, jsonSettings);
+            }
             return settings;
+        }
+
+        /// <summary>
+        /// Upgrades settings written by R3.1 and earlier (flat margins) to the
+        /// per-segment layout used by newer builds, and guarantees that the
+        /// layout objects are never null.
+        /// </summary>
+        private void MigrateLegacySettings(Types.Settings settings, string jsonSettings)
+        {
+            try
+            {
+                JObject json = JObject.Parse(jsonSettings);
+
+                if (json["SimpleTaskbarLayout"] == null)
+                {
+                    int radius = json.Value<int?>("CornerRadius") ?? 7;
+                    int basic = json.Value<int?>("MarginBasic") ?? -384;
+                    int left = json.Value<int?>("MarginLeft") ?? 3;
+                    int top = json.Value<int?>("MarginTop") ?? 3;
+                    int right = json.Value<int?>("MarginRight") ?? 3;
+                    int bottom = json.Value<int?>("MarginBottom") ?? 3;
+
+                    // -384 was the sentinel for "independent margins enabled".
+                    if (basic != -384)
+                    {
+                        left = top = right = bottom = basic;
+                    }
+
+                    settings.SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = radius, MarginLeft = left, MarginTop = top, MarginRight = right, MarginBottom = bottom };
+                    settings.DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = radius, MarginLeft = left, MarginTop = top, MarginRight = right, MarginBottom = bottom };
+                    settings.DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = radius, MarginLeft = left, MarginTop = top, MarginRight = right, MarginBottom = bottom };
+                    settings.DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = radius, MarginLeft = left, MarginTop = top, MarginRight = right, MarginBottom = bottom };
+                    settings.ShowAppList = true;
+
+                    if (json["ShowSegmentsOnHover"] == null && json["ShowTrayOnHover"] != null)
+                    {
+                        settings.ShowSegmentsOnHover = json.Value<bool?>("ShowTrayOnHover") ?? false;
+                    }
+
+                    AddLog("Migrated legacy settings.");
+                }
+            }
+            catch (Exception)
+            {
+                // Fall through to the null guards below.
+            }
+
+            // A partial or malformed config must not crash the UI.
+            if (settings.SimpleTaskbarLayout == null)
+            {
+                settings.SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 };
+            }
+            if (settings.DynamicAppListLayout == null)
+            {
+                settings.DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 };
+            }
+            if (settings.DynamicTrayLayout == null)
+            {
+                settings.DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 };
+            }
+            if (settings.DynamicWidgetsLayout == null)
+            {
+                settings.DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 };
+            }
+            if (settings.ShowAppList == null)
+            {
+                settings.ShowAppList = true;
+            }
         }
 
         public bool IsWindows11()
@@ -67,6 +150,8 @@ namespace RoundedTB
                         IsCentred = false,
                         IsWindows11 = true,
                         ShowTray = false,
+                        ShowWidgets = false,
+                        ShowAppList = true,
                         CompositionCompat = false,
                         IsNotFirstLaunch = false,
                         FillOnMaximise = true,
@@ -87,6 +172,8 @@ namespace RoundedTB
                         IsCentred = false,
                         IsWindows11 = false,
                         ShowTray = false,
+                        ShowWidgets = false,
+                        ShowAppList = true,
                         CompositionCompat = false,
                         IsNotFirstLaunch = false,
                         FillOnMaximise = true,
@@ -202,6 +289,20 @@ namespace RoundedTB
                                 }
                                 mw.ApplyButton_Click(null, null);
                             }
+                            handled = true;
+                            break;
+
+                        case 9001:
+                            // Win+F3: toggle the app list segment.
+                            if (mw.showAppListCheckBox.IsChecked == true)
+                            {
+                                mw.showAppListCheckBox.IsChecked = false;
+                            }
+                            else
+                            {
+                                mw.showAppListCheckBox.IsChecked = true;
+                            }
+                            mw.ApplyButton_Click(null, null);
                             handled = true;
                             break;
                     }

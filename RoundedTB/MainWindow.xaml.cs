@@ -168,6 +168,7 @@ namespace RoundedTB
                         IsWindows11 = true,
                         ShowTray = false,
                         ShowWidgets = false,
+                        ShowAppList = true,
                         CompositionCompat = false,
                         IsNotFirstLaunch = false,
                         FillOnMaximise = true,
@@ -189,6 +190,7 @@ namespace RoundedTB
                         IsWindows11 = false,
                         ShowTray = false,
                         ShowWidgets = false,
+                        ShowAppList = true,
                         CompositionCompat = false,
                         IsNotFirstLaunch = false,
                         FillOnMaximise = true,
@@ -281,6 +283,8 @@ namespace RoundedTB
             centredCheckBox.IsChecked = activeSettings.IsCentred;
             showTrayCheckBox.IsChecked = activeSettings.ShowTray;
             showWidgetsCheckBox.IsChecked = activeSettings.ShowWidgets;
+            showAppListCheckBox.IsChecked = activeSettings.ShowAppList ?? true;
+            showAppListCheckBox.IsEnabled = activeSettings.IsDynamic;
             fillMaximisedCheckBox.IsChecked = activeSettings.FillOnMaximise;
             fillAltTabCheckBox.IsChecked = activeSettings.FillOnTaskSwitch;
             showSegmentsOnHoverCheckBox.IsChecked = activeSettings.ShowSegmentsOnHover;
@@ -332,6 +336,15 @@ namespace RoundedTB
 
         public void UpdateUi()
         {
+            if (activeSettings.IsDynamic && !(activeSettings.ShowAppList ?? true))
+            {
+                taskbarRectStandIn.Opacity = 0.5;
+            }
+            else
+            {
+                taskbarRectStandIn.Opacity = 1;
+            }
+
             if (!activeSettings.ShowTray || activeSettings.ShowSegmentsOnHover)
             {
                 trayRectStandIn.Opacity = 0.5;
@@ -465,17 +478,19 @@ namespace RoundedTB
             activeSettings.IsCentred = Taskbar.CheckIfCentred();
             activeSettings.ShowTray = (bool)showTrayCheckBox.IsChecked;
             activeSettings.ShowWidgets = (bool)showWidgetsCheckBox.IsChecked;
+            activeSettings.ShowAppList = showAppListCheckBox.IsChecked == true;
             activeSettings.CompositionCompat = (bool)compositionFixCheckBox.IsChecked;
             activeSettings.FillOnMaximise = (bool)fillMaximisedCheckBox.IsChecked;
             activeSettings.FillOnTaskSwitch = (bool)fillAltTabCheckBox.IsChecked;
             activeSettings.ShowSegmentsOnHover = (bool)showSegmentsOnHoverCheckBox.IsChecked;
 
+            bool showAppList = activeSettings.ShowAppList ?? true;
             try
             {
                 foreach (Types.Taskbar taskbar in taskbarDetails)
                 {
                     int isFullTest = taskbar.TrayRect.Left - taskbar.AppListRect.Right;
-                    if (!activeSettings.IsDynamic || (isFullTest <= taskbar.ScaleFactor * 25 && isFullTest > 0 && taskbar.TrayRect.Left != 0))
+                    if (!activeSettings.IsDynamic || (showAppList && isFullTest <= taskbar.ScaleFactor * 25 && isFullTest > 0 && taskbar.TrayRect.Left != 0))
                     {
                         Taskbar.UpdateSimpleTaskbar(taskbar, activeSettings);
                     }
@@ -790,7 +805,12 @@ namespace RoundedTB
             showSegmentsOnHoverCheckBox.IsChecked = false;
             showTrayCheckBox.IsEnabled = true;
             showTrayCheckBox.IsChecked = true;
-            
+            showAppListCheckBox.IsEnabled = true;
+            if (selectedSegment == 0 || selectedSegment == 1)
+            {
+                showAppListCheckBox.Visibility = Visibility.Visible;
+            }
+
             if (!isWindows11)
             {
                 splitHelpButton.Visibility = Visibility.Visible;
@@ -811,10 +831,22 @@ namespace RoundedTB
             showSegmentsOnHoverCheckBox.IsChecked = false;
             showTrayCheckBox.IsEnabled = false;
             showTrayCheckBox.IsChecked = false;
-            
+            showAppListCheckBox.IsEnabled = false;
+            showAppListCheckBox.Visibility = Visibility.Hidden;
+
             if (!isWindows11)
             {
                 splitHelpButton.Visibility = Visibility.Hidden;
+            }
+        }
+
+        private void showAppListCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // If nothing else is visible the taskbar would have no region at all,
+            // so keep the tray segment visible as a fallback.
+            if (showTrayCheckBox.IsChecked != true && showWidgetsCheckBox.IsChecked != true)
+            {
+                showTrayCheckBox.IsChecked = true;
             }
         }
 
@@ -856,7 +888,9 @@ namespace RoundedTB
             source = HwndSource.FromHwnd(handle);
             source.AddHook(interaction.HwndHook);
             bool wtf = LocalPInvoke.RegisterHotKey(handle, 9000, 0x8, 0x71);
+            bool appListHotkey = LocalPInvoke.RegisterHotKey(handle, 9001, 0x8, 0x72);
             Debug.WriteLine("KEY: " + wtf);
+            Debug.WriteLine("APP LIST KEY: " + appListHotkey);
             Debug.WriteLine(handle);
             Debug.WriteLine((int)Types.KeyModifier.WinKey);
             Debug.WriteLine(System.Windows.Forms.Keys.J.GetHashCode());
@@ -933,6 +967,7 @@ namespace RoundedTB
             dynamicCheckBox.Visibility = Visibility.Visible;
             showTrayCheckBox.Visibility = Visibility.Hidden;
             showWidgetsCheckBox.Visibility = Visibility.Hidden;
+            showAppListCheckBox.Visibility = activeSettings.IsDynamic ? Visibility.Visible : Visibility.Hidden;
 
             if (activeSettings.IsDynamic)
             {
@@ -966,6 +1001,7 @@ namespace RoundedTB
             dynamicCheckBox.Visibility = Visibility.Hidden;
             showTrayCheckBox.Visibility = Visibility.Visible;
             showWidgetsCheckBox.Visibility = Visibility.Hidden;
+            showAppListCheckBox.Visibility = Visibility.Hidden;
 
             selectedSegment = 2;
 
@@ -985,6 +1021,7 @@ namespace RoundedTB
             dynamicCheckBox.Visibility = Visibility.Hidden;
             showTrayCheckBox.Visibility = Visibility.Hidden;
             showWidgetsCheckBox.Visibility = Visibility.Visible;
+            showAppListCheckBox.Visibility = Visibility.Hidden;
 
             selectedSegment = 3;
 

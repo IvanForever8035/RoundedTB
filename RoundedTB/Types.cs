@@ -38,6 +38,8 @@ namespace RoundedTB
             public bool IsWindows11 { get; set; }
             public bool ShowTray { get; set; }
             public bool ShowWidgets { get; set; }
+            // Nullable so configs written before this option existed default to "visible".
+            public bool? ShowAppList { get; set; }
             public bool CompositionCompat { get; set; }
             public bool IsNotFirstLaunch { get; set; }
             public bool FillOnMaximise { get; set; }

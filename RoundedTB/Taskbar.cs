@@ -201,9 +201,10 @@ namespace RoundedTB
         {
             try
             {
-                IntPtr mainRegion;
+                IntPtr mainRegion = IntPtr.Zero;
                 IntPtr workingRegion = LocalPInvoke.CreateRoundRectRgn(1, 1, 1, 1, 0, 0);
                 int centredDistanceFromEdge = 0;
+                bool showAppList = settings.ShowAppList ?? true;
 
                 // Create an effective region to be applied to the taskbar for the applist
                 Types.EffectiveRegion taskbarEffectiveRegion = new Types.EffectiveRegion
@@ -252,31 +253,35 @@ namespace RoundedTB
                     centredDistanceFromEdge -= Convert.ToInt32(20 * taskbar.ScaleFactor);
                 }
 
-                // Create region for if the taskbar is centred by take the right-to-right distance (centredDistanceFromEdge) off from both sides, as well as the margin
-                if (settings.IsCentred)
+                // Create the main (app list) segment unless the user has hidden it.
+                if (showAppList)
                 {
-                    mainRegion = LocalPInvoke.CreateRoundRectRgn(
-                        centredDistanceFromEdge + centredEffectiveRegion.Left,
-                        centredEffectiveRegion.Top,
-                        centredEffectiveRegion.Width - centredDistanceFromEdge,
-                        centredEffectiveRegion.Height,
-                        centredEffectiveRegion.CornerRadius,
-                        centredEffectiveRegion.CornerRadius
-                        );
-                }
+                    // Create region for if the taskbar is centred by take the right-to-right distance (centredDistanceFromEdge) off from both sides, as well as the margin
+                    if (settings.IsCentred)
+                    {
+                        mainRegion = LocalPInvoke.CreateRoundRectRgn(
+                            centredDistanceFromEdge + centredEffectiveRegion.Left,
+                            centredEffectiveRegion.Top,
+                            centredEffectiveRegion.Width - centredDistanceFromEdge,
+                            centredEffectiveRegion.Height,
+                            centredEffectiveRegion.CornerRadius,
+                            centredEffectiveRegion.CornerRadius
+                            );
+                    }
 
-                // Create a region for if the taskbar is left-aligned, right-to-right distance (centredDistanceFromEdge) off from the right-hand side, as well as the margin
-                else
-                {
+                    // Create a region for if the taskbar is left-aligned, right-to-right distance (centredDistanceFromEdge) off from the right-hand side, as well as the margin
+                    else
+                    {
 
-                    mainRegion = LocalPInvoke.CreateRoundRectRgn(
-                        taskbarEffectiveRegion.Left,
-                        taskbarEffectiveRegion.Top,
-                        taskbarEffectiveRegion.Width - centredDistanceFromEdge,
-                        taskbarEffectiveRegion.Height,
-                        taskbarEffectiveRegion.CornerRadius,
-                        taskbarEffectiveRegion.CornerRadius
-                        );
+                        mainRegion = LocalPInvoke.CreateRoundRectRgn(
+                            taskbarEffectiveRegion.Left,
+                            taskbarEffectiveRegion.Top,
+                            taskbarEffectiveRegion.Width - centredDistanceFromEdge,
+                            taskbarEffectiveRegion.Height,
+                            taskbarEffectiveRegion.CornerRadius,
+                            taskbarEffectiveRegion.CornerRadius
+                            );
+                    }
                 }
 
                 // If the user has it enabled and the tray handle isn't null, create a region for the system tray and merge it with the taskbar region
@@ -291,8 +296,15 @@ namespace RoundedTB
                         trayEffectiveRegion.CornerRadius
                         );
 
-                    LocalPInvoke.CombineRgn(workingRegion, trayRegion, mainRegion, 2);
-                    mainRegion = workingRegion;
+                    if (mainRegion == IntPtr.Zero)
+                    {
+                        mainRegion = trayRegion;
+                    }
+                    else
+                    {
+                        LocalPInvoke.CombineRgn(workingRegion, trayRegion, mainRegion, 2);
+                        mainRegion = workingRegion;
+                    }
                 }
 
                 if (settings.ShowWidgets)
@@ -306,8 +318,23 @@ namespace RoundedTB
                         widgetsEffectiveRegion.CornerRadius
                         );
 
-                    LocalPInvoke.CombineRgn(workingRegion, widgetsRegion, mainRegion, 2);
-                    mainRegion = workingRegion;
+                    if (mainRegion == IntPtr.Zero)
+                    {
+                        mainRegion = widgetsRegion;
+                    }
+                    else
+                    {
+                        LocalPInvoke.CombineRgn(workingRegion, widgetsRegion, mainRegion, 2);
+                        mainRegion = workingRegion;
+                    }
+                }
+
+                if (mainRegion == IntPtr.Zero)
+                {
+                    // Every segment is hidden. Restore the taskbar rather than leaving
+                    // the user with an invisible and unclickable taskbar.
+                    ResetTaskbar(taskbar, settings);
+                    return true;
                 }
 
                 // Apply the final region to the taskbar
@@ -376,7 +403,7 @@ namespace RoundedTB
         /// <returns>
         /// A bool indicating if the update is valid.
         /// </returns>
-        public static bool CheckDynamicUpdateIsValid(Types.Taskbar currentTB, Types.Taskbar newTB)
+        public static bool CheckDynamicUpdateIsValid(Types.Taskbar currentTB, Types.Taskbar newTB, bool appListHidden = false)
         {
             // REMINDER: newTB will only have rect & hwnd info. Everything else will be null.
 
@@ -390,6 +417,14 @@ namespace RoundedTB
             if (currentTB.TaskbarHwnd != newTB.TaskbarHwnd)
             {
                 return false;
+            }
+
+            // The app list measurements are only used to build the main segment.
+            // When that segment is hidden, they are irrelevant (and a full taskbar
+            // would otherwise fail the width checks below).
+            if (appListHidden)
+            {
+                return true;
             }
 
             // Get width of app list. Not strictly necessary as the applist is always measured from the left but doing so just in case
