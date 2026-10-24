@@ -130,10 +130,28 @@ namespace RoundedTB
                 logPath = Path.Combine(Windows.Storage.ApplicationData.Current.RoamingFolder.Path, "rtb.log");
             }
 
-            if (System.IO.File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk")) && !IsRunningAsUWP())
+            string startupLink = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk");
+            if (System.IO.File.Exists(startupLink) && !IsRunningAsUWP())
             {
                 StartupCheckBox.IsChecked = true;
                 ShowMenuItem.Header = "Show RoundedTB";
+
+                // Older builds wrote Environment.GetCommandLineArgs()[0] into the
+                // shortcut, which is RoundedTB.dll for a .NET app. Repair stale links.
+                try
+                {
+                    WshShell shellClass = new WshShell();
+                    IWshShortcut existingShortcut = (IWshShortcut)shellClass.CreateShortcut(startupLink);
+                    string exePath = GetExecutablePath();
+                    if (!string.IsNullOrEmpty(exePath) &&
+                        !string.Equals(existingShortcut.TargetPath, exePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        EnableStartup();
+                    }
+                }
+                catch (Exception)
+                {
+                }
             }
             taskbarThread.WorkerSupportsCancellation = true;
             taskbarThread.WorkerReportsProgress = true;
@@ -693,15 +711,27 @@ namespace RoundedTB
             }
             else
             {
-                if (System.IO.File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk")))
+                string startupLink = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk");
+                if (StartupCheckBox.IsChecked == true)
                 {
-                    System.IO.File.Delete(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk"));
-                }
-                else
-                {
+                    // Always (re)write the shortcut so a stale target is corrected.
                     EnableStartup();
                 }
+                else if (System.IO.File.Exists(startupLink))
+                {
+                    System.IO.File.Delete(startupLink);
+                }
             }
+        }
+
+        private static string GetExecutablePath()
+        {
+            string path = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(path))
+            {
+                path = Process.GetCurrentProcess().MainModule?.FileName;
+            }
+            return path;
         }
 
         public void EnableStartup()
@@ -713,11 +743,18 @@ namespace RoundedTB
                 {
                     Directory.CreateDirectory(shortcutFolder);
                 }
+                string exePath = GetExecutablePath();
+                if (string.IsNullOrEmpty(exePath))
+                {
+                    return;
+                }
+
                 WshShell shellClass = new WshShell();
                 string rtbStartupLink = Path.Combine(shortcutFolder, "RoundedTB.lnk");
                 IWshShortcut shortcut = (IWshShortcut)shellClass.CreateShortcut(rtbStartupLink);
-                shortcut.TargetPath = Environment.GetCommandLineArgs()[0];
-                shortcut.IconLocation = Environment.GetCommandLineArgs()[0];
+                shortcut.TargetPath = exePath;
+                shortcut.IconLocation = exePath;
+                shortcut.WorkingDirectory = Path.GetDirectoryName(exePath);
                 shortcut.Arguments = "";
                 shortcut.Description = "Start RoundedTB";
                 shortcut.Save();
