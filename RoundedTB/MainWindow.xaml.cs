@@ -16,7 +16,6 @@ using System.Diagnostics;
 using Microsoft.Win32;
 using System.Text;
 using WPFUI;
-using System.Windows.Forms;
 using System.Windows.Media;
 
 namespace RoundedTB
@@ -437,10 +436,26 @@ namespace RoundedTB
             }
         }
 
+        private static void PumpDispatcher()
+        {
+            DispatcherFrame frame = new DispatcherFrame();
+            Dispatcher.CurrentDispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                new DispatcherOperationCallback(obj =>
+                {
+                    ((DispatcherFrame)obj).Continue = false;
+                    return null;
+                }),
+                frame);
+            Dispatcher.PushFrame(frame);
+        }
+
         public void AutoHide(bool enabled, List<Types.Taskbar> taskbarDetails)
         {
-            int workingHeight = Screen.PrimaryScreen.WorkingArea.Height;
-            int boundsHeight = Screen.PrimaryScreen.Bounds.Height;
+            LocalPInvoke.RECT workArea = new LocalPInvoke.RECT();
+            LocalPInvoke.SystemParametersInfo(0x0030, 0, ref workArea, 0); // SPI_GETWORKAREA
+            int workingHeight = workArea.Bottom - workArea.Top;
+            int boundsHeight = LocalPInvoke.GetSystemMetrics(1); // SM_CYSCREEN
             int taskbarHeight = taskbarDetails[0].TaskbarRect.Bottom - taskbarDetails[0].TaskbarRect.Top;
             bool workAreaMisconfigured = false;
 
@@ -713,7 +728,7 @@ namespace RoundedTB
                 taskbarThread.CancelAsync();
                 while (taskbarThread.IsBusy == true)
                 {
-                    System.Windows.Forms.Application.DoEvents();
+                    PumpDispatcher();
                     System.Threading.Thread.Sleep(100);
                 }
                 taskbarThread.RunWorkerAsync((mt, ml, mb, mr, 0));
@@ -757,7 +772,7 @@ namespace RoundedTB
                 }
                 while (taskbarThread.IsBusy == true)
                 {
-                    System.Windows.Forms.Application.DoEvents();
+                    PumpDispatcher();
                     System.Threading.Thread.Sleep(100);
                 }
 
@@ -1158,7 +1173,6 @@ namespace RoundedTB
             Debug.WriteLine("APP LIST KEY: " + appListHotkey);
             Debug.WriteLine(handle);
             Debug.WriteLine((int)Types.KeyModifier.WinKey);
-            Debug.WriteLine(System.Windows.Forms.Keys.J.GetHashCode());
             Visibility = Visibility.Hidden;
             Opacity = 1;
         }
