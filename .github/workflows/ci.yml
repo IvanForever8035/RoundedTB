@@ -59,6 +59,27 @@ jobs:
           }
         }
 
+    - name: Trim unused WinForms assemblies
+      run: |
+        $roots = @(
+          "${{ github.workspace }}\dist\win-x64",
+          (Get-ChildItem "${{ github.workspace }}\RoundedTB\bin" -Directory -Filter 'RoundedTB-*' | Select-Object -ExpandProperty FullName)
+        )
+        $winforms = @(
+          'System.Windows.Forms.dll',
+          'System.Windows.Forms.Design.dll',
+          'System.Windows.Forms.Design.Editors.dll',
+          'System.Windows.Forms.Primitives.dll',
+          'Microsoft.VisualBasic.Forms.dll',
+          'WindowsFormsIntegration.dll'
+        )
+        foreach ($root in $roots) {
+          foreach ($name in $winforms) {
+            Get-ChildItem $root -Recurse -Filter $name -File -ErrorAction SilentlyContinue |
+              Remove-Item -Force -ErrorAction SilentlyContinue
+          }
+        }
+
     - name: Upload framework-dependent build
       uses: actions/upload-artifact@v7
       with:
