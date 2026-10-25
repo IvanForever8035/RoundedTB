@@ -50,6 +50,8 @@ namespace RoundedTB
         private HwndSource source;
         public int selectedSegment = 0; // 0 = Simple, 1 = AppList, 2 = Tray, 3 = Widgets
         public int version = -1;
+        private DispatcherTimer startupCoordinator;
+        private int taskbarCreatedMessage;
         /// <summary>
         /// Versions:
         /// -1: Canary
@@ -332,8 +334,14 @@ namespace RoundedTB
             keepRunningCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             KeepRunningTrayCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
+            interaction.AddLog($"Startup: exe={Environment.ProcessPath}, taskbars={taskbarDetails.Count}");
 
             ApplyButton_Click(null, null);
+
+            if (!TryApplyTaskbarRegionsIfReady())
+            {
+                StartStartupCoordinator();
+            }
 
 
             if (!activeSettings.FillOnMaximise)
@@ -498,6 +506,117 @@ namespace RoundedTB
             //}
         }
 
+
+        private bool TryApplyTaskbarRegionsIfReady()
+        {
+            IntPtr hwndMain = LocalPInvoke.FindWindowExA(IntPtr.Zero, IntPtr.Zero, "Shell_TrayWnd", null);
+            if (hwndMain == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            IntPtr hwndRebar = LocalPInvoke.FindWindowExA(hwndMain, IntPtr.Zero, "ReBarWindow32", null);
+            IntPtr hwndAppList = LocalPInvoke.FindWindowExA(hwndRebar, IntPtr.Zero, "MSTaskSwWClass", null);
+            IntPtr hwndTray = LocalPInvoke.FindWindowExA(hwndMain, IntPtr.Zero, "TrayNotifyWnd", null);
+            if (hwndAppList == IntPtr.Zero || hwndTray == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            taskbarDetails = Taskbar.GenerateTaskbarInfo();
+            ApplyTaskbarRegionsDirect();
+            StartTaskbarWorkerIfNeeded();
+            interaction.AddLog("Startup coordinator: taskbar ready, regions applied");
+            return true;
+        }
+
+        private void ApplyTaskbarRegionsDirect()
+        {
+            bool showAppList = activeSettings.ShowAppList ?? true;
+            foreach (Types.Taskbar taskbar in taskbarDetails)
+            {
+                if (taskbar.TaskbarHwnd == IntPtr.Zero)
+                {
+                    continue;
+                }
+
+                int isFullTest = taskbar.TrayRect.Left - taskbar.AppListRect.Right;
+                if (!activeSettings.IsDynamic || (showAppList && isFullTest <= taskbar.ScaleFactor * 25 && isFullTest > 0 && taskbar.TrayRect.Left != 0))
+                {
+                    Taskbar.UpdateSimpleTaskbar(taskbar, activeSettings);
+                }
+                else
+                {
+                    Taskbar.UpdateDynamicTaskbar(taskbar, activeSettings);
+                }
+            }
+        }
+
+        private void StartTaskbarWorkerIfNeeded()
+        {
+            try
+            {
+                if (!taskbarThread.IsBusy)
+                {
+                    taskbarThread.RunWorkerAsync((0, 0, 0, 0, 0));
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
+        private void StartStartupCoordinator()
+        {
+            if (startupCoordinator != null)
+            {
+                return;
+            }
+
+            int attempts = 0;
+            startupCoordinator = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            startupCoordinator.Tick += (sender, args) =>
+            {
+                attempts++;
+                if (TryApplyTaskbarRegionsIfReady())
+                {
+                    startupCoordinator.Stop();
+                    startupCoordinator = null;
+                    interaction.AddLog($"Startup coordinator: success after {attempts} attempt(s)");
+                    return;
+                }
+
+                if (attempts >= 120)
+                {
+                    startupCoordinator.Stop();
+                    startupCoordinator = null;
+                    interaction.AddLog("Startup coordinator: timed out after 120 seconds");
+                }
+            };
+            startupCoordinator.Start();
+            interaction.AddLog("Startup coordinator: waiting for taskbar");
+        }
+
+        private IntPtr TaskbarCreatedHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (taskbarCreatedMessage != 0 && msg == taskbarCreatedMessage)
+            {
+                interaction.AddLog("TaskbarCreated message received");
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!TryApplyTaskbarRegionsIfReady())
+                    {
+                        StartStartupCoordinator();
+                    }
+                }));
+                handled = true;
+            }
+
+            return IntPtr.Zero;
+        }
 
         public void ApplyButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1006,6 +1125,8 @@ namespace RoundedTB
             IntPtr handle = new WindowInteropHelper(this).Handle;
             source = HwndSource.FromHwnd(handle);
             source.AddHook(interaction.HwndHook);
+            taskbarCreatedMessage = LocalPInvoke.RegisterWindowMessage("TaskbarCreated");
+            source.AddHook(TaskbarCreatedHook);
             bool wtf = LocalPInvoke.RegisterHotKey(handle, 9000, 0x8, 0x71);
             bool appListHotkey = LocalPInvoke.RegisterHotKey(handle, 9001, 0x8, 0x72);
             Debug.WriteLine("KEY: " + wtf);

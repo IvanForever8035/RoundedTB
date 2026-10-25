@@ -14,7 +14,6 @@ namespace RoundedTB
     public class Interaction
     {
         public MainWindow mw;
-        string m = "";
 
         public Interaction()
         {
@@ -218,8 +217,24 @@ namespace RoundedTB
 
         public void AddLog(string message)
         {
-            //m = $"[{DateTime.Now}] {message}\n";
-            //File.AppendAllText(mw.logPath, m);
+            try
+            {
+                if (mw == null || string.IsNullOrEmpty(mw.logPath) || string.IsNullOrEmpty(message))
+                {
+                    return;
+                }
+
+                FileInfo logFile = new FileInfo(mw.logPath);
+                if (logFile.Exists && logFile.Length > 5 * 1024 * 1024)
+                {
+                    return;
+                }
+
+                File.AppendAllText(mw.logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}\n");
+            }
+            catch (Exception)
+            {
+            }
         }
 
         public static bool IsTranslucentTBRunning()
