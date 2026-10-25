@@ -452,9 +452,9 @@ namespace RoundedTB
 
         public void AutoHide(bool enabled, List<Types.Taskbar> taskbarDetails)
         {
-            LocalPInvoke.RECT workArea = new LocalPInvoke.RECT();
-            LocalPInvoke.SystemParametersInfo(0x0030, 0, ref workArea, 0); // SPI_GETWORKAREA
-            int workingHeight = workArea.Bottom - workArea.Top;
+            LocalPInvoke.RECT physicalWorkArea = new LocalPInvoke.RECT();
+            LocalPInvoke.SystemParametersInfo(0x0030, 0, ref physicalWorkArea, 0); // SPI_GETWORKAREA
+            int workingHeight = physicalWorkArea.Bottom - physicalWorkArea.Top;
             int boundsHeight = LocalPInvoke.GetSystemMetrics(1); // SM_CYSCREEN
             int taskbarHeight = taskbarDetails[0].TaskbarRect.Bottom - taskbarDetails[0].TaskbarRect.Top;
             bool workAreaMisconfigured = false;
