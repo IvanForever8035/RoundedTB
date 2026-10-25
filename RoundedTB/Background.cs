@@ -165,6 +165,7 @@ namespace RoundedTB
 
                         // Work with static values to avoid some null reference exceptions
                         List<Types.Taskbar> taskbars = mw.taskbarDetails;
+                        List<Types.Taskbar> originalTaskbars = taskbars;
                         Types.Settings settings = mw.activeSettings;
                         bool showAppList = settings.ShowAppList ?? true;
 
@@ -407,7 +408,12 @@ namespace RoundedTB
                                 }
                             }
                         }
-                        mw.taskbarDetails = taskbars;
+                        // Do not overwrite a newer taskbar list produced by the
+                        // startup coordinator while this loop was running.
+                        if (ReferenceEquals(mw.taskbarDetails, originalTaskbars))
+                        {
+                            mw.taskbarDetails = taskbars;
+                        }
 
                         // Explorer can reset the taskbar region during logon and
                         // shell startup. Re-apply periodically so a transient reset

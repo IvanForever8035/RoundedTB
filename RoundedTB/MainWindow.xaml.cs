@@ -524,6 +524,31 @@ namespace RoundedTB
             }
 
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
+
+            bool expectTray = activeSettings.ShowTray
+                || (activeSettings.ShowSegmentsOnHover && (activeSettings.TrayHoverEnabled ?? true));
+            bool expectAppList = activeSettings.ShowAppList ?? true;
+
+            foreach (Types.Taskbar taskbar in taskbarDetails)
+            {
+                if (taskbar.TaskbarHwnd == IntPtr.Zero)
+                {
+                    return false;
+                }
+
+                if (expectTray && (taskbar.TrayHwnd == IntPtr.Zero || taskbar.TrayRect.Left == 0 || taskbar.TrayRect.Right <= taskbar.TrayRect.Left))
+                {
+                    interaction.AddLog($"Startup coordinator: tray not ready (hwnd={taskbar.TrayHwnd}, rect={taskbar.TrayRect.Left}-{taskbar.TrayRect.Right})");
+                    return false;
+                }
+
+                if (expectAppList && (taskbar.AppListHwnd == IntPtr.Zero || taskbar.AppListRect.Right <= taskbar.AppListRect.Left))
+                {
+                    interaction.AddLog($"Startup coordinator: app list not ready (hwnd={taskbar.AppListHwnd}, rect={taskbar.AppListRect.Left}-{taskbar.AppListRect.Right})");
+                    return false;
+                }
+            }
+
             ApplyTaskbarRegionsDirect();
             StartTaskbarWorkerIfNeeded();
             interaction.AddLog("Startup coordinator: taskbar ready, regions applied");
