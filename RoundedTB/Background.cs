@@ -154,6 +154,22 @@ namespace RoundedTB
                                 catch (Exception)
                                 {
                                 }
+
+                                try
+                                {
+                                    if (Taskbar.GetTrayRectFromUia(tb.BridgeHwnd, out LocalPInvoke.RECT uiaTrayRect))
+                                    {
+                                        if (tb.TrayRect.Left != uiaTrayRect.Left || tb.TrayRect.Top != uiaTrayRect.Top ||
+                                            tb.TrayRect.Right != uiaTrayRect.Right || tb.TrayRect.Bottom != uiaTrayRect.Bottom)
+                                        {
+                                            tb.TrayRect = uiaTrayRect;
+                                            tb.Ignored = true;
+                                        }
+                                    }
+                                }
+                                catch (Exception)
+                                {
+                                }
                             }
 
                             infrequentCount = 0;
@@ -195,6 +211,14 @@ namespace RoundedTB
                                 LocalPInvoke.RECT appListRect = newTaskbar.AppListRect;
                                 appListRect.Right = taskbars[current].AppListRect.Right;
                                 newTaskbar.AppListRect = appListRect;
+                            }
+
+                            // Keep the UIA-measured tray rect when the legacy
+                            // TrayNotifyWnd still reports an empty rect.
+                            if (taskbars[current].TrayRect.Right > taskbars[current].TrayRect.Left &&
+                                newTaskbar.TrayRect.Right <= newTaskbar.TrayRect.Left)
+                            {
+                                newTaskbar.TrayRect = taskbars[current].TrayRect;
                             }
 
 

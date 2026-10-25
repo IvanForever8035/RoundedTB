@@ -522,6 +522,71 @@ namespace RoundedTB
         }
 
         /// <summary>
+        /// Reads the system tray bounds from the Windows 11 XAML taskbar.
+        /// The legacy TrayNotifyWnd rect can stay 0,0,0,0 during logon.
+        /// </summary>
+        public static bool GetTrayRectFromUia(IntPtr bridgeHwnd, out LocalPInvoke.RECT trayRect)
+        {
+            trayRect = new LocalPInvoke.RECT();
+            if (bridgeHwnd == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            try
+            {
+                AutomationElement bridge = AutomationElement.FromHandle(bridgeHwnd);
+                if (bridge == null)
+                {
+                    return false;
+                }
+
+                AutomationElementCollection elements = bridge.FindAll(
+                    TreeScope.Descendants,
+                    System.Windows.Automation.Condition.TrueCondition);
+
+                int left = int.MaxValue;
+                int top = int.MaxValue;
+                int right = int.MinValue;
+                int bottom = int.MinValue;
+                foreach (AutomationElement element in elements)
+                {
+                    string className = element.Current.ClassName;
+                    if (string.IsNullOrEmpty(className) || !className.StartsWith("SystemTray."))
+                    {
+                        continue;
+                    }
+
+                    var rect = element.Current.BoundingRectangle;
+                    if (rect.Width <= 0 || rect.Height <= 0)
+                    {
+                        continue;
+                    }
+
+                    left = Math.Min(left, (int)rect.Left);
+                    top = Math.Min(top, (int)rect.Top);
+                    right = Math.Max(right, (int)rect.Right);
+                    bottom = Math.Max(bottom, (int)rect.Bottom);
+                }
+
+                if (right <= left)
+                {
+                    return false;
+                }
+
+                trayRect.Left = left;
+                trayRect.Top = top;
+                trayRect.Right = right;
+                trayRect.Bottom = bottom;
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Collects information on any currently-present taskbars.
         /// </summary>
         /// <returns>
@@ -539,6 +604,13 @@ namespace RoundedTB
             IntPtr hwndAppList = LocalPInvoke.FindWindowExA(LocalPInvoke.FindWindowExA(hwndMain, IntPtr.Zero, "ReBarWindow32", null), IntPtr.Zero, "MSTaskSwWClass", null); // Get the handle to the main taskbar's app list
             LocalPInvoke.GetWindowRect(hwndAppList, out LocalPInvoke.RECT rectAppList);// Get the RECT for the main taskbar's app list
             IntPtr hwndBridge = LocalPInvoke.FindWindowExA(hwndMain, IntPtr.Zero, "Windows.UI.Composition.DesktopWindowContentBridge", null); // Windows 11 XAML taskbar content
+
+            // The legacy tray window can report an empty rect while the XAML tray
+            // is already laid out; use the UIA tray bounds in that case.
+            if (rectTray.Right <= rectTray.Left && GetTrayRectFromUia(hwndBridge, out LocalPInvoke.RECT uiaTrayRect))
+            {
+                rectTray = uiaTrayRect;
+            }
 
             // On recent Windows 11 builds the legacy app list window only covers the
             // first few buttons; the XAML bridge has the real button positions.
@@ -602,6 +674,10 @@ namespace RoundedTB
                     IntPtr hwndSecAppList = LocalPInvoke.FindWindowExA(LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "WorkerW", null), IntPtr.Zero, "MSTaskListWClass", null); // Get the handle to the main taskbar's app list
                     LocalPInvoke.GetWindowRect(hwndSecAppList, out LocalPInvoke.RECT rectSecAppList);// Get the RECT for this secondary taskbar's app list
                     IntPtr hwndSecBridge = LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "Windows.UI.Composition.DesktopWindowContentBridge", null);
+                    if (rectSecTray.Right <= rectSecTray.Left && GetTrayRectFromUia(hwndSecBridge, out LocalPInvoke.RECT secUiaTrayRect))
+                    {
+                        rectSecTray = secUiaTrayRect;
+                    }
                     int secUiaRight = GetAppListRightFromUia(hwndSecBridge);
                     if (secUiaRight > 0)
                     {
