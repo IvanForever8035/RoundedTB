@@ -42,6 +42,8 @@ namespace RoundedTB
         public int numberToForceRefresh = 0;
         public bool isCentred = false;
         public bool isAlreadyRunning = false;
+        private bool originalAutoHideWasEnabled;
+        private bool originalAutoHideStateCaptured;
         public Background background;
         public Interaction interaction;
         private HwndSource source;
@@ -316,6 +318,7 @@ namespace RoundedTB
             keepRunningCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             KeepRunningTrayCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
+            CaptureOriginalAutoHideState();
             interaction.AddLog($"Startup: exe={Environment.ProcessPath}, taskbars={taskbarDetails.Count}");
 
             ApplyButton_Click(null, null);
@@ -433,57 +436,45 @@ namespace RoundedTB
             Dispatcher.PushFrame(frame);
         }
 
+        private void CaptureOriginalAutoHideState()
+        {
+            if (originalAutoHideStateCaptured)
+            {
+                return;
+            }
+
+            if (taskbarDetails.Count == 0 || taskbarDetails[0].TaskbarHwnd == IntPtr.Zero)
+            {
+                return;
+            }
+
+            LocalPInvoke.AppBarStates state = Taskbar.GetTaskbarState(taskbarDetails[0].TaskbarHwnd);
+            originalAutoHideWasEnabled = (state & LocalPInvoke.AppBarStates.AutoHide) == LocalPInvoke.AppBarStates.AutoHide;
+            originalAutoHideStateCaptured = true;
+            interaction.AddLog($"Original Windows auto-hide: {originalAutoHideWasEnabled}");
+        }
+
         public void AutoHide(bool enabled, List<Types.Taskbar> taskbarDetails)
         {
-            LocalPInvoke.RECT physicalWorkArea = new LocalPInvoke.RECT();
-            LocalPInvoke.SystemParametersInfo(0x0030, 0, ref physicalWorkArea, 0); // SPI_GETWORKAREA
-            int workingHeight = physicalWorkArea.Bottom - physicalWorkArea.Top;
-            int boundsHeight = LocalPInvoke.GetSystemMetrics(1); // SM_CYSCREEN
-            int taskbarHeight = taskbarDetails[0].TaskbarRect.Bottom - taskbarDetails[0].TaskbarRect.Top;
-            bool workAreaMisconfigured = false;
-
-            if (boundsHeight - taskbarHeight > workingHeight)
+            CaptureOriginalAutoHideState();
+            if (!originalAutoHideStateCaptured)
             {
-                workAreaMisconfigured = true;
+                return;
             }
 
-            if (activeSettings.AutoHide > 0 && enabled)
+            // RoundedTB's Always hide option drives the shell's appbar auto-hide.
+            // When it is off, restore whatever Windows had before RoundedTB ran.
+            bool autoHide = (enabled && activeSettings.AutoHide > 0) || originalAutoHideWasEnabled;
+
+            foreach (Types.Taskbar taskbar in taskbarDetails)
             {
-                MonitorStuff.DisplayInfoCollection Displays = MonitorStuff.GetDisplays();
-
-                foreach (MonitorStuff.DisplayInfo display in Displays)
+                if (taskbar.TaskbarHwnd == IntPtr.Zero)
                 {
-                    LocalPInvoke.RECT workArea = display.MonitorArea;
-                    workArea.Bottom = workArea.Bottom - 2;
-                    Interaction.SetWorkspace(workArea);
+                    continue;
                 }
-                foreach (Types.Taskbar taskbar in taskbarDetails)
-                {
-                    LocalPInvoke.SetWindowPos(taskbar.TaskbarHwnd, new IntPtr(-1), 0, 0, 0, 0, LocalPInvoke.SetWindowPosFlags.IgnoreMove | LocalPInvoke.SetWindowPosFlags.IgnoreResize);
-                    Taskbar.SetTaskbarState(LocalPInvoke.AppBarStates.AlwaysOnTop, taskbar.TaskbarHwnd);
-                }
-            }
-            else if (!enabled)
-            {
-                foreach (Types.Taskbar taskbar in taskbarDetails)
-                {
-                    LocalPInvoke.SetWindowPos(taskbar.TaskbarHwnd, new IntPtr(-1), 0, 0, 0, 0, LocalPInvoke.SetWindowPosFlags.IgnoreMove | LocalPInvoke.SetWindowPosFlags.IgnoreResize);
-                    if (workAreaMisconfigured)
-                    {
-                        Taskbar.SetTaskbarState(LocalPInvoke.AppBarStates.AutoHide, taskbar.TaskbarHwnd);
-                        Taskbar.SetTaskbarState(LocalPInvoke.AppBarStates.AlwaysOnTop, taskbar.TaskbarHwnd);
-                    }
 
-                    MonitorStuff.DisplayInfoCollection Displays = MonitorStuff.GetDisplays();
-
-                    foreach (MonitorStuff.DisplayInfo display in Displays)
-                    {
-                        taskbarHeight = taskbar.TaskbarRect.Bottom - taskbar.TaskbarRect.Top;
-                        LocalPInvoke.RECT workArea = display.MonitorArea;
-                        workArea.Bottom = workArea.Bottom - taskbarHeight;
-                        Interaction.SetWorkspace(workArea);
-                    }
-                }
+                LocalPInvoke.SetWindowPos(taskbar.TaskbarHwnd, new IntPtr(-1), 0, 0, 0, 0, LocalPInvoke.SetWindowPosFlags.IgnoreMove | LocalPInvoke.SetWindowPosFlags.IgnoreResize);
+                Taskbar.SetTaskbarState(autoHide ? LocalPInvoke.AppBarStates.AutoHide : LocalPInvoke.AppBarStates.AlwaysOnTop, taskbar.TaskbarHwnd);
             }
         }
 
@@ -522,6 +513,7 @@ namespace RoundedTB
             }
 
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
+            CaptureOriginalAutoHideState();
 
             bool expectTray = activeSettings.ShowTray
                 || (activeSettings.ShowSegmentsOnHover && (activeSettings.TrayHoverEnabled ?? true));

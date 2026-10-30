@@ -767,6 +767,15 @@ namespace RoundedTB
         /// <summary>
         /// Sets the appbar properties of the taskbar.
         /// </summary>
+        public static LocalPInvoke.AppBarStates GetTaskbarState(IntPtr hwnd)
+        {
+            LocalPInvoke.APPBARDATA msgData = new LocalPInvoke.APPBARDATA();
+            msgData.cbSize = (uint)Marshal.SizeOf(msgData);
+            msgData.hWnd = hwnd;
+            IntPtr result = LocalPInvoke.SHAppBarMessage(LocalPInvoke.ABM.GetState, ref msgData);
+            return (LocalPInvoke.AppBarStates)result.ToInt32();
+        }
+
         public static void SetTaskbarState(LocalPInvoke.AppBarStates option, IntPtr hwnd)
         {
             LocalPInvoke.APPBARDATA msgData = new LocalPInvoke.APPBARDATA();
