@@ -46,10 +46,6 @@ jobs:
         cd ${{ github.workspace }}
         msbuild RoundedTB\RoundedTB.csproj -restore -property:Configuration=Release -property:RuntimeIdentifier=win-x64 -property:SelfContained=false -property:PublishDir=${{ github.workspace }}/dist/framework/ -t:Publish
 
-    - name: Add commit hash to output folder
-      run: |
-        Rename-Item -Path ".\RoundedTB\bin\Release" -NewName "RoundedTB-$(git rev-parse --short ${{ github.sha }})"
-
     - name: Trim satellite languages
       run: |
         $roots = @(
@@ -95,37 +91,30 @@ jobs:
     - name: Upload framework-dependent artifact
       uses: actions/upload-artifact@v7
       with:
-        name: rtb-framework
+        name: RoundedTB-win-x64-framework-dependent
         path: |
           .\dist\framework\
-
-    - name: Upload framework-dependent build
-      uses: actions/upload-artifact@v7
-      with:
-        name: rtb-artifacts
-        path: |
-          .\RoundedTB\bin\RoundedTB-*\
 
     - name: Upload self-contained build
       uses: actions/upload-artifact@v7
       with:
-        name: rtb-selfcontained
+        name: RoundedTB-win-x64-self-contained
         path: |
           .\dist\win-x64\
 
     - name: Package release
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        Compress-Archive -Path .\dist\win-x64\* -DestinationPath .\RoundedTB-win-x64.zip -Force
+        Compress-Archive -Path .\dist\win-x64\* -DestinationPath .\RoundedTB-win-x64-self-contained.zip -Force
 
     - name: Package framework-dependent release
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        Compress-Archive -Path .\dist\framework\* -DestinationPath .\RoundedTB-win-x64-framework.zip -Force
+        Compress-Archive -Path .\dist\framework\* -DestinationPath .\RoundedTB-win-x64-framework-dependent.zip -Force
 
     - name: Create GitHub release
       if: startsWith(github.ref, 'refs/tags/')
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        gh release create "${{ github.ref_name }}" ".\RoundedTB-win-x64.zip" ".\RoundedTB-win-x64-framework.zip" --title "RoundedTB ${{ github.ref_name }}" --generate-notes
+        gh release create "${{ github.ref_name }}" ".\RoundedTB-win-x64-self-contained.zip" ".\RoundedTB-win-x64-framework-dependent.zip" --title "RoundedTB ${{ github.ref_name }}" --generate-notes
