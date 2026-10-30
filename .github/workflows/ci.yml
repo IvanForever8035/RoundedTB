@@ -41,6 +41,11 @@ jobs:
         cd ${{ github.workspace }}
         msbuild RoundedTB\RoundedTB.csproj -restore -property:Configuration=Release -property:RuntimeIdentifier=win-x64 -property:SelfContained=true -property:PublishDir=${{ github.workspace }}/dist/win-x64/ -t:Publish
 
+    - name: Publish framework-dependent
+      run: |
+        cd ${{ github.workspace }}
+        msbuild RoundedTB\RoundedTB.csproj -restore -property:Configuration=Release -property:RuntimeIdentifier=win-x64 -property:SelfContained=false -property:PublishDir=${{ github.workspace }}/dist/framework/ -t:Publish
+
     - name: Add commit hash to output folder
       run: |
         Rename-Item -Path ".\RoundedTB\bin\Release" -NewName "RoundedTB-$(git rev-parse --short ${{ github.sha }})"
@@ -49,6 +54,7 @@ jobs:
       run: |
         $roots = @(
           "${{ github.workspace }}\dist\win-x64",
+          "${{ github.workspace }}\dist\framework",
           (Get-ChildItem "${{ github.workspace }}\RoundedTB\bin" -Directory -Filter 'RoundedTB-*' | Select-Object -ExpandProperty FullName)
         )
         foreach ($root in $roots) {
@@ -63,6 +69,7 @@ jobs:
       run: |
         $roots = @(
           "${{ github.workspace }}\dist\win-x64",
+          "${{ github.workspace }}\dist\framework",
           (Get-ChildItem "${{ github.workspace }}\RoundedTB\bin" -Directory -Filter 'RoundedTB-*' | Select-Object -ExpandProperty FullName)
         )
         $winforms = @(
@@ -79,6 +86,18 @@ jobs:
               Remove-Item -Force -ErrorAction SilentlyContinue
           }
         }
+
+    - name: Trim framework-dependent debug files
+      run: |
+        Get-ChildItem "${{ github.workspace }}\dist\framework" -Recurse -Include *.pdb,*.xml -File -ErrorAction SilentlyContinue |
+          Remove-Item -Force -ErrorAction SilentlyContinue
+
+    - name: Upload framework-dependent artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: rtb-framework
+        path: |
+          .\dist\framework\
 
     - name: Upload framework-dependent build
       uses: actions/upload-artifact@v7
