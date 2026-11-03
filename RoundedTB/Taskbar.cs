@@ -324,6 +324,43 @@ namespace RoundedTB
         }
 
         /// <summary>
+        /// Unions two regions and frees both inputs. Returns the combined region,
+        /// or the first one if the union fails. Keeping ownership explicit is
+        /// essential: this runs every 100ms while hover mode is active, and a
+        /// leaked region per call exhausts the process GDI quota in minutes.
+        /// </summary>
+        private static IntPtr CombineRegions(IntPtr first, IntPtr second)
+        {
+            if (first == IntPtr.Zero)
+            {
+                return second;
+            }
+
+            if (second == IntPtr.Zero)
+            {
+                return first;
+            }
+
+            IntPtr combined = LocalPInvoke.CreateRectRgn(0, 0, 0, 0);
+            if (combined == IntPtr.Zero)
+            {
+                LocalPInvoke.DeleteObject(second);
+                return first;
+            }
+
+            if (LocalPInvoke.CombineRgn(combined, first, second, 2) == 0)
+            {
+                LocalPInvoke.DeleteObject(combined);
+                LocalPInvoke.DeleteObject(second);
+                return first;
+            }
+
+            LocalPInvoke.DeleteObject(first);
+            LocalPInvoke.DeleteObject(second);
+            return combined;
+        }
+
+        /// <summary>
         /// Returns true when the taskbar currently has an empty window region,
         /// i.e. nothing of it can be hit-testable.
         /// </summary>
@@ -436,7 +473,6 @@ namespace RoundedTB
             try
             {
                 IntPtr mainRegion = IntPtr.Zero;
-                IntPtr workingRegion = LocalPInvoke.CreateRoundRectRgn(1, 1, 1, 1, 0, 0);
                 int centredDistanceFromEdge = 0;
                 AutoHideState autoHideState = GetAutoHideState(taskbar.TaskbarHwnd, GetLiveTaskbarRect(taskbar), taskbar.ScaleFactor, out LocalPInvoke.RECT autoHidePeekRect);
                 bool showAppList = (settings.ShowAppList ?? true)
@@ -538,8 +574,7 @@ namespace RoundedTB
                     }
                     else
                     {
-                        LocalPInvoke.CombineRgn(workingRegion, trayRegion, mainRegion, 2);
-                        mainRegion = workingRegion;
+                        mainRegion = CombineRegions(mainRegion, trayRegion);
                     }
                 }
 
@@ -560,8 +595,7 @@ namespace RoundedTB
                     }
                     else
                     {
-                        LocalPInvoke.CombineRgn(workingRegion, widgetsRegion, mainRegion, 2);
-                        mainRegion = workingRegion;
+                        mainRegion = CombineRegions(mainRegion, widgetsRegion);
                     }
                 }
 
