@@ -324,56 +324,6 @@ namespace RoundedTB
         }
 
         /// <summary>
-        /// Re-initialises the shell's auto-hide state. This is what toggling the
-        /// Windows auto-hide setting does, and it is the only way to recover a
-        /// taskbar that the shell left fully off-screen (nothing can be
-        /// hit-tested at the screen edge, so the shell cannot slide it back).
-        /// </summary>
-        public static void ReinitializeAutoHide(IntPtr taskbarHwnd)
-        {
-            SetTaskbarState(LocalPInvoke.AppBarStates.AlwaysOnTop, taskbarHwnd);
-            SetTaskbarState(LocalPInvoke.AppBarStates.AutoHide, taskbarHwnd);
-        }
-
-        /// <summary>
-        /// Returns true when the foreground window covers the taskbar's whole
-        /// monitor, e.g. a full-screen app. The shell may legitimately keep the
-        /// taskbar fully hidden then, so the watchdog must not interfere.
-        /// </summary>
-        public static bool IsFullscreenWindowOnMonitor(IntPtr taskbarHwnd)
-        {
-            try
-            {
-                IntPtr monitor = LocalPInvoke.MonitorFromWindow(taskbarHwnd, 2u);
-                if (monitor == IntPtr.Zero)
-                {
-                    return false;
-                }
-
-                MonitorStuff.MONITORINFO monitorInfo = new MonitorStuff.MONITORINFO();
-                monitorInfo.cbSize = (uint)Marshal.SizeOf(monitorInfo);
-                if (!MonitorStuff.GetMonitorInfo(monitor, ref monitorInfo))
-                {
-                    return false;
-                }
-
-                IntPtr foreground = LocalPInvoke.GetForegroundWindow();
-                if (foreground == IntPtr.Zero || !LocalPInvoke.GetWindowRect(foreground, out LocalPInvoke.RECT rect))
-                {
-                    return false;
-                }
-
-                LocalPInvoke.RECT screen = monitorInfo.rcMonitor;
-                return rect.Left <= screen.Left && rect.Top <= screen.Top &&
-                       rect.Right >= screen.Right && rect.Bottom >= screen.Bottom;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
         /// Returns true when the taskbar currently has an empty window region,
         /// i.e. nothing of it can be hit-testable.
         /// </summary>

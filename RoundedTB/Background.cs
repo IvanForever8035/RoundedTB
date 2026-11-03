@@ -234,28 +234,13 @@ namespace RoundedTB
                             if (autoHideState == Taskbar.AutoHideState.OffScreen ||
                                 autoHideState == Taskbar.AutoHideState.Transitioning)
                             {
-                                // A normal slide lasts a few hundred milliseconds. A
-                                // bar that stays off screen (or frozen mid-slide) is
-                                // stuck: the shell cannot see the cursor at the edge
-                                // and can never slide it back. Re-initialise
-                                // auto-hide, which is what toggling the Windows
-                                // setting does, unless a full-screen app is
-                                // legitimately covering the monitor.
-                                taskbars[current].StalledTicks++;
-                                if (taskbars[current].StalledTicks >= 20 &&
-                                    Environment.TickCount64 - taskbars[current].LastAutoHideRecovery >= 30000 &&
-                                    Taskbar.IsAutoHideActive(taskbars[current].TaskbarHwnd) &&
-                                    !Taskbar.IsFullscreenWindowOnMonitor(taskbars[current].TaskbarHwnd))
-                                {
-                                    Taskbar.ReinitializeAutoHide(taskbars[current].TaskbarHwnd);
-                                    taskbars[current].LastAutoHideRecovery = Environment.TickCount64;
-                                    taskbars[current].StalledTicks = 0;
-                                    mw.interaction.AddLog("Watchdog: reinitialised a stalled auto-hide taskbar");
-                                }
+                                // Leave the region alone while the bar slides or is
+                                // fully off screen. Toggling the shell's auto-hide
+                                // state here would also recalculate the work area
+                                // and resize maximised windows, so the watchdog does
+                                // not touch it.
                                 continue;
                             }
-
-                            taskbars[current].StalledTicks = 0;
 
 
                             // If the taskbar's monitor has a maximised window, reset it so it's "filled"

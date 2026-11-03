@@ -24,8 +24,6 @@ namespace RoundedTB
             public bool TaskbarHidden { get; set; } // Specifies if this taskbar is currently hidden by RTB
             public bool TrayHidden { get; set; } // Specifies if the tray is currently hidden by RTB on this taskbar
             public bool AppListVisible { get; set; } // Runtime hover state of the app list segment
-            public int StalledTicks { get; set; } // Consecutive update ticks spent off screen / mid-slide
-            public long LastAutoHideRecovery { get; set; } // TickCount64 of the last watchdog recovery
             public int AppListWidth { get; set; } // Specifies the width of the app list
             public TaskbarEffect TaskbarEffectWindow { get; set; } // Unused clone to apply effects to the taskbar
         }
