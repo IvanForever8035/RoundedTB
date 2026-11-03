@@ -193,8 +193,6 @@ namespace RoundedTB
                             Debug.WriteLine("Regenerating taskbar info");
                         }
 
-                        bool taskbarTransitioning = false;
-
                         for (int current = 0; current < taskbars.Count; current++)
                         {
                             if (taskbars[current].TaskbarHwnd == IntPtr.Zero || taskbars[current].AppListHwnd == IntPtr.Zero)
@@ -237,12 +235,10 @@ namespace RoundedTB
                                 autoHideState == Taskbar.AutoHideState.Transitioning)
                             {
                                 // Leave the region alone while the bar slides or is
-                                // fully off screen. Poll quickly so the normal
-                                // segment region (which has no peek strip) is
-                                // applied as soon as the reveal animation stops,
-                                // instead of leaving the strip visible for up to
-                                // one full 100ms tick.
-                                taskbarTransitioning = true;
+                                // fully off screen. Toggling the shell's auto-hide
+                                // state here would also recalculate the work area
+                                // and resize maximised windows, so the watchdog does
+                                // not touch it.
                                 continue;
                             }
 
@@ -394,10 +390,7 @@ namespace RoundedTB
                             }
                         }
 
-                    // Poll faster while a taskbar is sliding so the peek strip is
-                    // replaced by the real segment region almost immediately after
-                    // the animation ends.
-                    System.Threading.Thread.Sleep(taskbarTransitioning ? 15 : 100);
+                    System.Threading.Thread.Sleep(100);
                     }
                 }
                 catch (Exception ex)

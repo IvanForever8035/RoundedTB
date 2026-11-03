@@ -451,7 +451,6 @@ namespace RoundedTB
         /// </summary>
         public static void ResetTaskbar(Types.Taskbar taskbar, Types.Settings settings)
         {
-            taskbar.HasVisibleSegmentRegion = false;
             LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, IntPtr.Zero, true);
             LocalPInvoke.SetLayeredWindowAttributes(taskbar.TaskbarHwnd, 0, 255, LocalPInvoke.LWA_ALPHA);
             int style = LocalPInvoke.GetWindowLong(taskbar.TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
@@ -497,7 +496,6 @@ namespace RoundedTB
                     region = AddPeekRegion(region, peekRect);
                 }
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, region, true);
-                taskbar.HasVisibleSegmentRegion = true;
                 if (settings.CompositionCompat)
                 {
                     Interaction.UpdateTranslucentTB(taskbar.TaskbarHwnd);
@@ -681,8 +679,6 @@ namespace RoundedTB
                     peekRanges.Add((widgetsEffectiveRegion.Left, widgetsEffectiveRegion.Width));
                 }
 
-                bool visibleSegmentRegion = mainRegion != IntPtr.Zero;
-
                 if (mainRegion == IntPtr.Zero)
                 {
                     if (autoHideState == AutoHideState.Hidden)
@@ -694,37 +690,31 @@ namespace RoundedTB
 
                     if (mainRegion == IntPtr.Zero && settings.ShowSegmentsOnHover)
                     {
+                        // Never leave a shell-managed auto-hide taskbar without a
+                        // hit-testable pixel. An empty region makes the bar
+                        // impossible to trigger at the screen edge and can strand
+                        // it invisible even after RoundedTB exits. Keep the last
+                        // region instead; once the bar has slid away the Hidden
+                        // branch installs the peek strip above.
                         if (IsAutoHideActive(taskbar.TaskbarHwnd))
                         {
-                            if (taskbar.HasVisibleSegmentRegion)
+                            if (!IsWindowRegionEmpty(taskbar.TaskbarHwnd))
                             {
-                                // Keep the last segment on screen while the shell
-                                // slides the bar out. That region has no peek
-                                // strip, so nothing is left floating on the top
-                                // edge during the retract animation.
                                 return true;
                             }
 
-                            if (autoHideState != AutoHideState.Visible)
-                            {
-                                // Sliding or hidden: never leave the bar without a
-                                // hit-test pixel at the screen edge.
-                                if (IsWindowRegionEmpty(taskbar.TaskbarHwnd))
-                                {
-                                    ResetTaskbar(taskbar, settings);
-                                }
-                                return true;
-                            }
-
-                            // Visible and no segment to keep: fall through and
-                            // clear the region, which also removes the peek strip
-                            // as soon as the reveal animation has finished.
+                            // The region is already empty (for example auto-hide
+                            // was switched on after hover mode had hidden every
+                            // segment). Restore the full window so the shell can
+                            // hit-test and hide it; the peek strip is applied once
+                            // it has slid away.
+                            ResetTaskbar(taskbar, settings);
+                            return true;
                         }
 
                         // Hover mode intentionally hides every segment at rest.
                         // Apply an empty region so the full taskbar (including the
                         // app list) does not flash into view during auto-hide.
-                        taskbar.HasVisibleSegmentRegion = false;
                         IntPtr emptyRegion = LocalPInvoke.CreateRectRgn(0, 0, 0, 0);
                         if (emptyRegion != IntPtr.Zero)
                         {
@@ -756,7 +746,6 @@ namespace RoundedTB
 
                 // Apply the final region to the taskbar
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, mainRegion, true);
-                taskbar.HasVisibleSegmentRegion = visibleSegmentRegion;
                 if (settings.CompositionCompat)
                 {
                     Interaction.UpdateTranslucentTB(taskbar.TaskbarHwnd);
