@@ -44,6 +44,7 @@ namespace RoundedTB
         public bool isAlreadyRunning = false;
         private bool originalAutoHideWasEnabled;
         private bool originalAutoHideStateCaptured;
+        private bool attemptedStuckAutoHideRecovery;
         public Background background;
         public Interaction interaction;
         private HwndSource source;
@@ -514,6 +515,7 @@ namespace RoundedTB
 
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
             CaptureOriginalAutoHideState();
+            RecoverStuckAutoHideTaskbar();
 
             bool expectTray = activeSettings.ShowTray
                 || (activeSettings.ShowSegmentsOnHover && (activeSettings.TrayHoverEnabled ?? true));
@@ -543,6 +545,45 @@ namespace RoundedTB
             StartTaskbarWorkerIfNeeded();
             interaction.AddLog("Startup coordinator: taskbar ready, regions applied");
             return true;
+        }
+
+        /// <summary>
+        /// A bar left fully off-screen cannot be hit at the screen edge, so the
+        /// shell can never slide it back. Re-initialising the appbar auto-hide
+        /// state (the same as toggling the Windows setting) puts it back on the
+        /// peek edge. Only needed once, at startup.
+        /// </summary>
+        private void RecoverStuckAutoHideTaskbar()
+        {
+            if (attemptedStuckAutoHideRecovery)
+            {
+                return;
+            }
+
+            attemptedStuckAutoHideRecovery = true;
+
+            foreach (Types.Taskbar taskbar in taskbarDetails)
+            {
+                if (taskbar.TaskbarHwnd == IntPtr.Zero)
+                {
+                    continue;
+                }
+
+                LocalPInvoke.AppBarStates state = Taskbar.GetTaskbarState(taskbar.TaskbarHwnd);
+                if ((state & LocalPInvoke.AppBarStates.AutoHide) != LocalPInvoke.AppBarStates.AutoHide)
+                {
+                    continue;
+                }
+
+                LocalPInvoke.GetWindowRect(taskbar.TaskbarHwnd, out LocalPInvoke.RECT liveRect);
+                if (Taskbar.GetAutoHideState(taskbar.TaskbarHwnd, liveRect, taskbar.ScaleFactor, out _) != Taskbar.AutoHideState.OffScreen)
+                {
+                    continue;
+                }
+
+                Taskbar.ReinitializeAutoHide(taskbar.TaskbarHwnd);
+                interaction.AddLog("Recovered a taskbar stuck fully off screen by reinitialising auto-hide");
+            }
         }
 
         private void ApplyTaskbarRegionsDirect()

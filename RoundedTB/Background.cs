@@ -225,11 +225,37 @@ namespace RoundedTB
                             // taskbar window. Re-applying a region mid-animation makes
                             // Windows snap the bar to its final position instead of
                             // animating, so leave the region alone until it settles
-                            // (at the Hidden or Visible state).
-                            if (Taskbar.GetAutoHideState(newTaskbar.TaskbarHwnd, newTaskbar.TaskbarRect, taskbars[current].ScaleFactor, out _) == Taskbar.AutoHideState.Transitioning)
+                            // (at the Hidden or Visible state). A fully off-screen bar
+                            // is left alone too: there is no pixel to hit-test, and
+                            // the region is rebuilt once it is peeking again.
+                            Taskbar.AutoHideState autoHideState = Taskbar.GetAutoHideState(
+                                newTaskbar.TaskbarHwnd, newTaskbar.TaskbarRect, taskbars[current].ScaleFactor, out _);
+
+                            if (autoHideState == Taskbar.AutoHideState.OffScreen ||
+                                autoHideState == Taskbar.AutoHideState.Transitioning)
                             {
+                                // A normal slide lasts a few hundred milliseconds. A
+                                // bar that stays off screen (or frozen mid-slide) is
+                                // stuck: the shell cannot see the cursor at the edge
+                                // and can never slide it back. Re-initialise
+                                // auto-hide, which is what toggling the Windows
+                                // setting does, unless a full-screen app is
+                                // legitimately covering the monitor.
+                                taskbars[current].StalledTicks++;
+                                if (taskbars[current].StalledTicks >= 20 &&
+                                    Environment.TickCount64 - taskbars[current].LastAutoHideRecovery >= 30000 &&
+                                    Taskbar.IsAutoHideActive(taskbars[current].TaskbarHwnd) &&
+                                    !Taskbar.IsFullscreenWindowOnMonitor(taskbars[current].TaskbarHwnd))
+                                {
+                                    Taskbar.ReinitializeAutoHide(taskbars[current].TaskbarHwnd);
+                                    taskbars[current].LastAutoHideRecovery = Environment.TickCount64;
+                                    taskbars[current].StalledTicks = 0;
+                                    mw.interaction.AddLog("Watchdog: reinitialised a stalled auto-hide taskbar");
+                                }
                                 continue;
                             }
+
+                            taskbars[current].StalledTicks = 0;
 
 
                             // If the taskbar's monitor has a maximised window, reset it so it's "filled"

@@ -35,6 +35,12 @@ namespace RoundedTB
         [DllImport("user32.dll")]
         public static extern int GetWindowRgn(IntPtr hWnd, out IntPtr hRgn);
 
+        // GetWindowRgn copies the window region into the supplied HRGN. The
+        // out-parameter overload above cannot do that and must not be used to
+        // inspect an existing region.
+        [DllImport("user32.dll")]
+        public static extern int GetWindowRgn(IntPtr hWnd, IntPtr hRgn);
+
         [DllImport("user32.dll")]
         public static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
 
@@ -58,6 +64,9 @@ namespace RoundedTB
 
         [DllImport("user32.dll")]
         public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
         public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);

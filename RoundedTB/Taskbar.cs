@@ -138,7 +138,8 @@ namespace RoundedTB
         {
             Visible,        // Fully on its monitor.
             Hidden,         // Settled at the screen edge with only the peek strip visible.
-            Transitioning   // Sliding in or out.
+            Transitioning,  // Sliding in or out.
+            OffScreen       // Entirely outside its monitor, so nothing is hit-testable.
         }
 
         /// <summary>
@@ -176,7 +177,7 @@ namespace RoundedTB
                 }
 
                 // Fully on screen: normal operation.
-                const int tolerance = 1;
+                const int tolerance = 2;
                 if (taskbarRect.Left >= screen.Left - tolerance &&
                     taskbarRect.Top >= screen.Top - tolerance &&
                     taskbarRect.Right <= screen.Right + tolerance &&
@@ -252,6 +253,12 @@ namespace RoundedTB
                     return AutoHideState.Visible;
                 }
 
+                // Entirely off the monitor: no pixel can receive a hover event.
+                if (peekThickness <= 0 || peekRect.Right <= peekRect.Left || peekRect.Bottom <= peekRect.Top)
+                {
+                    return AutoHideState.OffScreen;
+                }
+
                 // The shell leaves only a couple of pixels visible while hidden.
                 // Anything more than that means the bar is still sliding.
                 int peekThreshold = Math.Max(3, Convert.ToInt32(4 * scaleFactor));
@@ -304,7 +311,7 @@ namespace RoundedTB
         /// <summary>
         /// Returns true while the shell is responsible for hiding the taskbar.
         /// </summary>
-        private static bool IsAutoHideActive(IntPtr taskbarHwnd)
+        public static bool IsAutoHideActive(IntPtr taskbarHwnd)
         {
             try
             {
@@ -317,11 +324,100 @@ namespace RoundedTB
         }
 
         /// <summary>
+        /// Re-initialises the shell's auto-hide state. This is what toggling the
+        /// Windows auto-hide setting does, and it is the only way to recover a
+        /// taskbar that the shell left fully off-screen (nothing can be
+        /// hit-tested at the screen edge, so the shell cannot slide it back).
+        /// </summary>
+        public static void ReinitializeAutoHide(IntPtr taskbarHwnd)
+        {
+            SetTaskbarState(LocalPInvoke.AppBarStates.AlwaysOnTop, taskbarHwnd);
+            SetTaskbarState(LocalPInvoke.AppBarStates.AutoHide, taskbarHwnd);
+        }
+
+        /// <summary>
+        /// Returns true when the foreground window covers the taskbar's whole
+        /// monitor, e.g. a full-screen app. The shell may legitimately keep the
+        /// taskbar fully hidden then, so the watchdog must not interfere.
+        /// </summary>
+        public static bool IsFullscreenWindowOnMonitor(IntPtr taskbarHwnd)
+        {
+            try
+            {
+                IntPtr monitor = LocalPInvoke.MonitorFromWindow(taskbarHwnd, 2u);
+                if (monitor == IntPtr.Zero)
+                {
+                    return false;
+                }
+
+                MonitorStuff.MONITORINFO monitorInfo = new MonitorStuff.MONITORINFO();
+                monitorInfo.cbSize = (uint)Marshal.SizeOf(monitorInfo);
+                if (!MonitorStuff.GetMonitorInfo(monitor, ref monitorInfo))
+                {
+                    return false;
+                }
+
+                IntPtr foreground = LocalPInvoke.GetForegroundWindow();
+                if (foreground == IntPtr.Zero || !LocalPInvoke.GetWindowRect(foreground, out LocalPInvoke.RECT rect))
+                {
+                    return false;
+                }
+
+                LocalPInvoke.RECT screen = monitorInfo.rcMonitor;
+                return rect.Left <= screen.Left && rect.Top <= screen.Top &&
+                       rect.Right >= screen.Right && rect.Bottom >= screen.Bottom;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Returns true when the taskbar currently has an empty window region,
+        /// i.e. nothing of it can be hit-testable.
+        /// </summary>
+        private static bool IsWindowRegionEmpty(IntPtr taskbarHwnd)
+        {
+            IntPtr region = LocalPInvoke.CreateRectRgn(0, 0, 0, 0);
+            if (region == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            try
+            {
+                // 0 means the window has no region (fully visible), 1 means the
+                // region exists but is empty.
+                return LocalPInvoke.GetWindowRgn(taskbarHwnd, region) == 1;
+            }
+            finally
+            {
+                LocalPInvoke.DeleteObject(region);
+            }
+        }
+
+        /// <summary>
+        /// Reads the taskbar's current rect. Callers can hold a stale rect (for
+        /// example the settings window applies regions from its cached taskbar
+        /// list), which would misclassify a hidden bar as visible.
+        /// </summary>
+        private static LocalPInvoke.RECT GetLiveTaskbarRect(Types.Taskbar taskbar)
+        {
+            if (LocalPInvoke.GetWindowRect(taskbar.TaskbarHwnd, out LocalPInvoke.RECT liveRect) &&
+                liveRect.Right > liveRect.Left && liveRect.Bottom > liveRect.Top)
+            {
+                return liveRect;
+            }
+
+            return taskbar.TaskbarRect;
+        }
+
+        /// <summary>
         /// Resets the specified taskbar.
         /// </summary>
         public static void ResetTaskbar(Types.Taskbar taskbar, Types.Settings settings)
         {
-            taskbar.HasVisibleSegmentRegion = false;
             LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, IntPtr.Zero, true);
             LocalPInvoke.SetLayeredWindowAttributes(taskbar.TaskbarHwnd, 0, 255, LocalPInvoke.LWA_ALPHA);
             int style = LocalPInvoke.GetWindowLong(taskbar.TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
@@ -362,12 +458,11 @@ namespace RoundedTB
                 };
 
                 IntPtr region = LocalPInvoke.CreateRoundRectRgn(taskbarEffectiveRegion.Left, taskbarEffectiveRegion.Top, taskbarEffectiveRegion.Width, taskbarEffectiveRegion.Height, taskbarEffectiveRegion.CornerRadius, taskbarEffectiveRegion.CornerRadius);
-                if (GetAutoHideState(taskbar.TaskbarHwnd, taskbar.TaskbarRect, taskbar.ScaleFactor, out LocalPInvoke.RECT peekRect) == AutoHideState.Hidden)
+                if (GetAutoHideState(taskbar.TaskbarHwnd, GetLiveTaskbarRect(taskbar), taskbar.ScaleFactor, out LocalPInvoke.RECT peekRect) == AutoHideState.Hidden)
                 {
                     region = AddPeekRegion(region, peekRect);
                 }
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, region, true);
-                taskbar.HasVisibleSegmentRegion = true;
                 if (settings.CompositionCompat)
                 {
                     Interaction.UpdateTranslucentTB(taskbar.TaskbarHwnd);
@@ -393,7 +488,7 @@ namespace RoundedTB
                 IntPtr mainRegion = IntPtr.Zero;
                 IntPtr workingRegion = LocalPInvoke.CreateRoundRectRgn(1, 1, 1, 1, 0, 0);
                 int centredDistanceFromEdge = 0;
-                AutoHideState autoHideState = GetAutoHideState(taskbar.TaskbarHwnd, taskbar.TaskbarRect, taskbar.ScaleFactor, out LocalPInvoke.RECT autoHidePeekRect);
+                AutoHideState autoHideState = GetAutoHideState(taskbar.TaskbarHwnd, GetLiveTaskbarRect(taskbar), taskbar.ScaleFactor, out LocalPInvoke.RECT autoHidePeekRect);
                 bool showAppList = (settings.ShowAppList ?? true)
                     && (!settings.ShowSegmentsOnHover || taskbar.AppListVisible);
 
@@ -520,8 +615,6 @@ namespace RoundedTB
                     }
                 }
 
-                bool visibleSegmentRegion = mainRegion != IntPtr.Zero;
-
                 if (mainRegion == IntPtr.Zero)
                 {
                     if (autoHideState == AutoHideState.Hidden)
@@ -533,21 +626,31 @@ namespace RoundedTB
 
                     if (mainRegion == IntPtr.Zero && settings.ShowSegmentsOnHover)
                     {
-                        // While the shell is auto-hiding the bar, keep the last
-                        // segment region until it has slid away. Emptying the region
-                        // now would make the taskbar disappear in one frame instead
-                        // of animating out.
-                        if (autoHideState != AutoHideState.Hidden &&
-                            taskbar.HasVisibleSegmentRegion &&
-                            IsAutoHideActive(taskbar.TaskbarHwnd))
+                        // Never leave a shell-managed auto-hide taskbar without a
+                        // hit-testable pixel. An empty region makes the bar
+                        // impossible to trigger at the screen edge and can strand
+                        // it invisible even after RoundedTB exits. Keep the last
+                        // region instead; once the bar has slid away the Hidden
+                        // branch installs the peek strip above.
+                        if (IsAutoHideActive(taskbar.TaskbarHwnd))
                         {
+                            if (!IsWindowRegionEmpty(taskbar.TaskbarHwnd))
+                            {
+                                return true;
+                            }
+
+                            // The region is already empty (for example auto-hide
+                            // was switched on after hover mode had hidden every
+                            // segment). Restore the full window so the shell can
+                            // hit-test and hide it; the peek strip is applied once
+                            // it has slid away.
+                            ResetTaskbar(taskbar, settings);
                             return true;
                         }
 
                         // Hover mode intentionally hides every segment at rest.
                         // Apply an empty region so the full taskbar (including the
                         // app list) does not flash into view during auto-hide.
-                        taskbar.HasVisibleSegmentRegion = false;
                         IntPtr emptyRegion = LocalPInvoke.CreateRectRgn(0, 0, 0, 0);
                         if (emptyRegion != IntPtr.Zero)
                         {
@@ -579,7 +682,6 @@ namespace RoundedTB
 
                 // Apply the final region to the taskbar
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, mainRegion, true);
-                taskbar.HasVisibleSegmentRegion = visibleSegmentRegion;
                 if (settings.CompositionCompat)
                 {
                     Interaction.UpdateTranslucentTB(taskbar.TaskbarHwnd);
