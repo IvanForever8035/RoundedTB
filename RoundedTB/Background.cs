@@ -221,6 +221,16 @@ namespace RoundedTB
                                 newTaskbar.TrayRect = taskbars[current].TrayRect;
                             }
 
+                            // While the shell animates auto-hide it slides the whole
+                            // taskbar window. Re-applying a region mid-animation makes
+                            // Windows snap the bar to its final position instead of
+                            // animating, so leave the region alone until it settles
+                            // (at the Hidden or Visible state).
+                            if (Taskbar.GetAutoHideState(newTaskbar.TaskbarHwnd, newTaskbar.TaskbarRect, taskbars[current].ScaleFactor, out _) == Taskbar.AutoHideState.Transitioning)
+                            {
+                                continue;
+                            }
+
 
                             // If the taskbar's monitor has a maximised window, reset it so it's "filled"
                             if (Taskbar.TaskbarShouldBeFilled(taskbars[current].TaskbarHwnd, settings))

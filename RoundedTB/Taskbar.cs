@@ -134,6 +134,173 @@ namespace RoundedTB
             };
         }
 
+        public enum AutoHideState
+        {
+            Visible,        // Fully on its monitor.
+            Hidden,         // Settled at the screen edge with only the peek strip visible.
+            Transitioning   // Sliding in or out.
+        }
+
+        /// <summary>
+        /// Classifies where the shell has put the taskbar relative to its monitor.
+        /// With auto-hide the shell slides the whole window past the screen edge.
+        /// Because RoundedTB clips that window, the still-visible "peek" strip has
+        /// to stay inside the region: Windows only reveals the bar when the cursor
+        /// is over a hit-testable taskbar pixel at the screen edge.
+        /// </summary>
+        public static AutoHideState GetAutoHideState(IntPtr taskbarHwnd, LocalPInvoke.RECT taskbarRect, double scaleFactor, out LocalPInvoke.RECT peekRect)
+        {
+            peekRect = new LocalPInvoke.RECT();
+
+            try
+            {
+                IntPtr monitor = LocalPInvoke.MonitorFromWindow(taskbarHwnd, 2u);
+                if (monitor == IntPtr.Zero)
+                {
+                    return AutoHideState.Visible;
+                }
+
+                MonitorStuff.MONITORINFO monitorInfo = new MonitorStuff.MONITORINFO();
+                monitorInfo.cbSize = (uint)Marshal.SizeOf(monitorInfo);
+                if (!MonitorStuff.GetMonitorInfo(monitor, ref monitorInfo))
+                {
+                    return AutoHideState.Visible;
+                }
+
+                LocalPInvoke.RECT screen = monitorInfo.rcMonitor;
+                int width = taskbarRect.Right - taskbarRect.Left;
+                int height = taskbarRect.Bottom - taskbarRect.Top;
+                if (width <= 0 || height <= 0)
+                {
+                    return AutoHideState.Visible;
+                }
+
+                // Fully on screen: normal operation.
+                const int tolerance = 1;
+                if (taskbarRect.Left >= screen.Left - tolerance &&
+                    taskbarRect.Top >= screen.Top - tolerance &&
+                    taskbarRect.Right <= screen.Right + tolerance &&
+                    taskbarRect.Bottom <= screen.Bottom + tolerance)
+                {
+                    return AutoHideState.Visible;
+                }
+
+                // Work out which screen edge the taskbar is sliding past. A
+                // high-DPI taskbar can overhang more than one edge; the docked
+                // edge is the one it overhangs the most.
+                int bottomOverhang = taskbarRect.Bottom - screen.Bottom;
+                int topOverhang = screen.Top - taskbarRect.Top;
+                int leftOverhang = screen.Left - taskbarRect.Left;
+                int rightOverhang = taskbarRect.Right - screen.Right;
+
+                int stripLeft = Math.Max(taskbarRect.Left, screen.Left) - taskbarRect.Left;
+                int stripRight = Math.Min(taskbarRect.Right, screen.Right) - taskbarRect.Left;
+                int stripTop = Math.Max(taskbarRect.Top, screen.Top) - taskbarRect.Top;
+                int stripBottom = Math.Min(taskbarRect.Bottom, screen.Bottom) - taskbarRect.Top;
+
+                int peekThickness;
+                if (bottomOverhang > 0 && bottomOverhang >= topOverhang && bottomOverhang >= leftOverhang && bottomOverhang >= rightOverhang)
+                {
+                    // Bottom-docked: the top rows of the window are still visible.
+                    peekThickness = Math.Min(height, Math.Max(0, screen.Bottom - taskbarRect.Top));
+                    peekRect = new LocalPInvoke.RECT
+                    {
+                        Left = stripLeft,
+                        Top = 0,
+                        Right = stripRight,
+                        Bottom = Math.Min(peekThickness, height)
+                    };
+                }
+                else if (topOverhang > 0 && topOverhang >= leftOverhang && topOverhang >= rightOverhang)
+                {
+                    // Top-docked: the bottom rows of the window are still visible.
+                    peekThickness = Math.Min(height, Math.Max(0, taskbarRect.Bottom - screen.Top));
+                    peekRect = new LocalPInvoke.RECT
+                    {
+                        Left = stripLeft,
+                        Top = Math.Max(0, height - peekThickness),
+                        Right = stripRight,
+                        Bottom = height
+                    };
+                }
+                else if (leftOverhang > 0 && leftOverhang >= rightOverhang)
+                {
+                    // Left-docked: the right columns of the window are still visible.
+                    peekThickness = Math.Min(width, Math.Max(0, taskbarRect.Right - screen.Left));
+                    peekRect = new LocalPInvoke.RECT
+                    {
+                        Left = Math.Max(0, width - peekThickness),
+                        Top = stripTop,
+                        Right = width,
+                        Bottom = stripBottom
+                    };
+                }
+                else if (rightOverhang > 0)
+                {
+                    // Right-docked: the left columns of the window are still visible.
+                    peekThickness = Math.Min(width, Math.Max(0, screen.Right - taskbarRect.Left));
+                    peekRect = new LocalPInvoke.RECT
+                    {
+                        Left = 0,
+                        Top = stripTop,
+                        Right = Math.Min(peekThickness, width),
+                        Bottom = stripBottom
+                    };
+                }
+                else
+                {
+                    return AutoHideState.Visible;
+                }
+
+                // The shell leaves only a couple of pixels visible while hidden.
+                // Anything more than that means the bar is still sliding.
+                int peekThreshold = Math.Max(3, Convert.ToInt32(4 * scaleFactor));
+                return peekThickness <= peekThreshold ? AutoHideState.Hidden : AutoHideState.Transitioning;
+            }
+            catch (Exception)
+            {
+                return AutoHideState.Visible;
+            }
+        }
+
+        /// <summary>
+        /// Adds the auto-hide peek strip to a region so it remains hit-testable.
+        /// Takes ownership of <paramref name="region"/> and returns the new region.
+        /// </summary>
+        private static IntPtr AddPeekRegion(IntPtr region, LocalPInvoke.RECT peekRect)
+        {
+            if (peekRect.Right <= peekRect.Left || peekRect.Bottom <= peekRect.Top)
+            {
+                return region;
+            }
+
+            IntPtr peekRegion = LocalPInvoke.CreateRectRgn(peekRect.Left, peekRect.Top, peekRect.Right, peekRect.Bottom);
+            if (peekRegion == IntPtr.Zero)
+            {
+                return region;
+            }
+
+            if (region == IntPtr.Zero)
+            {
+                return peekRegion;
+            }
+
+            IntPtr combined = LocalPInvoke.CreateRectRgn(0, 0, 0, 0);
+            if (combined == IntPtr.Zero || LocalPInvoke.CombineRgn(combined, region, peekRegion, 2) == 0)
+            {
+                if (combined != IntPtr.Zero)
+                {
+                    LocalPInvoke.DeleteObject(combined);
+                }
+                LocalPInvoke.DeleteObject(peekRegion);
+                return region;
+            }
+
+            LocalPInvoke.DeleteObject(peekRegion);
+            LocalPInvoke.DeleteObject(region);
+            return combined;
+        }
+
         /// <summary>
         /// Resets the specified taskbar.
         /// </summary>
@@ -179,6 +346,10 @@ namespace RoundedTB
                 };
 
                 IntPtr region = LocalPInvoke.CreateRoundRectRgn(taskbarEffectiveRegion.Left, taskbarEffectiveRegion.Top, taskbarEffectiveRegion.Width, taskbarEffectiveRegion.Height, taskbarEffectiveRegion.CornerRadius, taskbarEffectiveRegion.CornerRadius);
+                if (GetAutoHideState(taskbar.TaskbarHwnd, taskbar.TaskbarRect, taskbar.ScaleFactor, out LocalPInvoke.RECT peekRect) == AutoHideState.Hidden)
+                {
+                    region = AddPeekRegion(region, peekRect);
+                }
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, region, true);
                 if (settings.CompositionCompat)
                 {
@@ -205,6 +376,7 @@ namespace RoundedTB
                 IntPtr mainRegion = IntPtr.Zero;
                 IntPtr workingRegion = LocalPInvoke.CreateRoundRectRgn(1, 1, 1, 1, 0, 0);
                 int centredDistanceFromEdge = 0;
+                AutoHideState autoHideState = GetAutoHideState(taskbar.TaskbarHwnd, taskbar.TaskbarRect, taskbar.ScaleFactor, out LocalPInvoke.RECT autoHidePeekRect);
                 bool showAppList = (settings.ShowAppList ?? true)
                     && (!settings.ShowSegmentsOnHover || taskbar.AppListVisible);
 
@@ -333,7 +505,14 @@ namespace RoundedTB
 
                 if (mainRegion == IntPtr.Zero)
                 {
-                    if (settings.ShowSegmentsOnHover)
+                    if (autoHideState == AutoHideState.Hidden)
+                    {
+                        // Keep the peek strip hit-testable even though no segment
+                        // is visible, otherwise the shell can never reveal the bar.
+                        mainRegion = AddPeekRegion(IntPtr.Zero, autoHidePeekRect);
+                    }
+
+                    if (mainRegion == IntPtr.Zero && settings.ShowSegmentsOnHover)
                     {
                         // Hover mode intentionally hides every segment at rest.
                         // Apply an empty region so the full taskbar (including the
@@ -354,10 +533,17 @@ namespace RoundedTB
                         return true;
                     }
 
-                    // Every segment is hidden outside hover mode. Restore the taskbar
-                    // rather than leaving the user with an invisible taskbar.
-                    ResetTaskbar(taskbar, settings);
-                    return true;
+                    if (mainRegion == IntPtr.Zero)
+                    {
+                        // Every segment is hidden outside hover mode. Restore the taskbar
+                        // rather than leaving the user with an invisible taskbar.
+                        ResetTaskbar(taskbar, settings);
+                        return true;
+                    }
+                }
+                else if (autoHideState == AutoHideState.Hidden)
+                {
+                    mainRegion = AddPeekRegion(mainRegion, autoHidePeekRect);
                 }
 
                 // Apply the final region to the taskbar

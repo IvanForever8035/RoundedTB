@@ -44,6 +44,9 @@ namespace RoundedTB
         [DllImport("gdi32.dll")]
         public static extern IntPtr CreateRectRgn(int x1, int y1, int x2, int y2);
 
+        [DllImport("gdi32.dll")]
+        public static extern bool DeleteObject(IntPtr hObject);
+
         [DllImport("user32.dll")]
         public static extern IntPtr FindWindowExA(IntPtr hWndParent, IntPtr hWndChildAfter, string lpszClass, string lpszWindow);
 
