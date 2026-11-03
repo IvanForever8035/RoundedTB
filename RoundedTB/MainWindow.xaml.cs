@@ -562,7 +562,7 @@ namespace RoundedTB
                 }
                 else
                 {
-                    Taskbar.UpdateDynamicTaskbar(taskbar, activeSettings);
+                    Taskbar.UpdateDynamicTaskbar(taskbar, activeSettings, true);
                 }
             }
         }
@@ -684,7 +684,7 @@ namespace RoundedTB
                     }
                     else
                     {
-                        Taskbar.UpdateDynamicTaskbar(taskbar, activeSettings);
+                        Taskbar.UpdateDynamicTaskbar(taskbar, activeSettings, true);
                     }
                 }
             }

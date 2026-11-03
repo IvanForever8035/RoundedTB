@@ -519,7 +519,7 @@ namespace RoundedTB
         /// <returns>
         /// a bool indicating success.
         /// </returns>
-        public static bool UpdateDynamicTaskbar(Types.Taskbar taskbar, Types.Settings settings)
+        public static bool UpdateDynamicTaskbar(Types.Taskbar taskbar, Types.Settings settings, bool forceRegion = false)
         {
             try
             {
@@ -711,7 +711,7 @@ namespace RoundedTB
                         // it invisible even after RoundedTB exits. Keep the last
                         // region instead; once the bar has slid away the Hidden
                         // branch installs the peek strip above.
-                        if (IsAutoHideActive(taskbar.TaskbarHwnd))
+                        if (!forceRegion && IsAutoHideActive(taskbar.TaskbarHwnd))
                         {
                             if (!peekOmitted)
                             {
