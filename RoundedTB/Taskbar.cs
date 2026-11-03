@@ -302,10 +302,26 @@ namespace RoundedTB
         }
 
         /// <summary>
+        /// Returns true while the shell is responsible for hiding the taskbar.
+        /// </summary>
+        private static bool IsAutoHideActive(IntPtr taskbarHwnd)
+        {
+            try
+            {
+                return (GetTaskbarState(taskbarHwnd) & LocalPInvoke.AppBarStates.AutoHide) == LocalPInvoke.AppBarStates.AutoHide;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Resets the specified taskbar.
         /// </summary>
         public static void ResetTaskbar(Types.Taskbar taskbar, Types.Settings settings)
         {
+            taskbar.HasVisibleSegmentRegion = false;
             LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, IntPtr.Zero, true);
             LocalPInvoke.SetLayeredWindowAttributes(taskbar.TaskbarHwnd, 0, 255, LocalPInvoke.LWA_ALPHA);
             int style = LocalPInvoke.GetWindowLong(taskbar.TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
@@ -351,6 +367,7 @@ namespace RoundedTB
                     region = AddPeekRegion(region, peekRect);
                 }
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, region, true);
+                taskbar.HasVisibleSegmentRegion = true;
                 if (settings.CompositionCompat)
                 {
                     Interaction.UpdateTranslucentTB(taskbar.TaskbarHwnd);
@@ -503,6 +520,8 @@ namespace RoundedTB
                     }
                 }
 
+                bool visibleSegmentRegion = mainRegion != IntPtr.Zero;
+
                 if (mainRegion == IntPtr.Zero)
                 {
                     if (autoHideState == AutoHideState.Hidden)
@@ -514,9 +533,21 @@ namespace RoundedTB
 
                     if (mainRegion == IntPtr.Zero && settings.ShowSegmentsOnHover)
                     {
+                        // While the shell is auto-hiding the bar, keep the last
+                        // segment region until it has slid away. Emptying the region
+                        // now would make the taskbar disappear in one frame instead
+                        // of animating out.
+                        if (autoHideState != AutoHideState.Hidden &&
+                            taskbar.HasVisibleSegmentRegion &&
+                            IsAutoHideActive(taskbar.TaskbarHwnd))
+                        {
+                            return true;
+                        }
+
                         // Hover mode intentionally hides every segment at rest.
                         // Apply an empty region so the full taskbar (including the
                         // app list) does not flash into view during auto-hide.
+                        taskbar.HasVisibleSegmentRegion = false;
                         IntPtr emptyRegion = LocalPInvoke.CreateRectRgn(0, 0, 0, 0);
                         if (emptyRegion != IntPtr.Zero)
                         {
@@ -548,6 +579,7 @@ namespace RoundedTB
 
                 // Apply the final region to the taskbar
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, mainRegion, true);
+                taskbar.HasVisibleSegmentRegion = visibleSegmentRegion;
                 if (settings.CompositionCompat)
                 {
                     Interaction.UpdateTranslucentTB(taskbar.TaskbarHwnd);
