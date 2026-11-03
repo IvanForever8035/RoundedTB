@@ -324,11 +324,11 @@ namespace RoundedTB
         }
 
         /// <summary>
-        /// Adds the auto-hide peek strip only under the segments that can
-        /// actually appear, so the strip does not draw a line across the part
-        /// of the screen where no segment lives.
+        /// Adds the auto-hide peek strip only under the segments that need it.
+        /// Segments with a top margin of zero already reach the screen edge, so
+        /// their own region supplies the hit pixels and no extra line is drawn.
         /// </summary>
-        private static IntPtr AddPeekStrips(IntPtr region, LocalPInvoke.RECT peekRect, List<(int Left, int Right)> ranges)
+        private static IntPtr AddPeekStrips(IntPtr region, LocalPInvoke.RECT peekRect, List<(int Left, int Right)> ranges, bool fallbackFullWidth)
         {
             // Vertical taskbars get a column-shaped peek; the segment ranges are
             // horizontal, so keep the plain strip.
@@ -359,9 +359,10 @@ namespace RoundedTB
                 added = true;
             }
 
-            // Nothing enabled: keep a full-width strip so the bar is never left
-            // without a hit-test pixel at the screen edge.
-            if (!added)
+            // No segment wants a strip. If no segment is enabled at all, keep a
+            // full-width strip so the bar is never left without a hit-test pixel
+            // at the screen edge.
+            if (!added && fallbackFullWidth)
             {
                 result = AddPeekRegion(result, peekRect);
             }
@@ -491,7 +492,11 @@ namespace RoundedTB
                 };
 
                 IntPtr region = LocalPInvoke.CreateRoundRectRgn(taskbarEffectiveRegion.Left, taskbarEffectiveRegion.Top, taskbarEffectiveRegion.Width, taskbarEffectiveRegion.Height, taskbarEffectiveRegion.CornerRadius, taskbarEffectiveRegion.CornerRadius);
-                if (GetAutoHideState(taskbar.TaskbarHwnd, GetLiveTaskbarRect(taskbar), taskbar.ScaleFactor, out LocalPInvoke.RECT peekRect) == AutoHideState.Hidden)
+                // With no top margin the region already reaches the screen edge,
+                // so the taskbar's own pixels are the hit target; adding a strip
+                // would only draw an extra line.
+                if (taskbarEffectiveRegion.Top > 0 &&
+                    GetAutoHideState(taskbar.TaskbarHwnd, GetLiveTaskbarRect(taskbar), taskbar.ScaleFactor, out LocalPInvoke.RECT peekRect) == AutoHideState.Hidden)
                 {
                     region = AddPeekRegion(region, peekRect);
                 }
@@ -645,10 +650,19 @@ namespace RoundedTB
                     }
                 }
 
-                // Only segments that can actually appear need the peek strip;
-                // otherwise the strip draws a line across empty screen space.
+                // Only segments that can actually appear, and whose top margin
+                // would clip the peek strip, need the extra line. A segment with
+                // no top margin already reaches the screen edge.
+                bool appSegmentEnabled = settings.ShowAppList ?? true;
+                bool traySegmentEnabled = settings.ShowSegmentsOnHover
+                    ? ((settings.TrayHoverEnabled ?? true) || settings.ShowTray)
+                    : settings.ShowTray;
+                bool traySegmentAvailable = traySegmentEnabled && taskbar.TrayHwnd != IntPtr.Zero && taskbar.TrayRect.Left != 0;
+                bool widgetsSegmentEnabled = settings.ShowWidgets;
+                bool anySegmentEnabled = appSegmentEnabled || traySegmentAvailable || widgetsSegmentEnabled;
+
                 List<(int Left, int Right)> peekRanges = new List<(int, int)>();
-                if (settings.ShowAppList ?? true)
+                if (appSegmentEnabled && taskbarEffectiveRegion.Top > 0)
                 {
                     if (settings.IsCentred)
                     {
@@ -664,20 +678,21 @@ namespace RoundedTB
                     }
                 }
 
-                bool trayPeek = settings.ShowSegmentsOnHover
-                    ? ((settings.TrayHoverEnabled ?? true) || settings.ShowTray)
-                    : settings.ShowTray;
-                if (trayPeek && taskbar.TrayHwnd != IntPtr.Zero && taskbar.TrayRect.Left != 0)
+                if (traySegmentAvailable && trayEffectiveRegion.Top > 0)
                 {
                     peekRanges.Add((
                         (taskbar.TrayRect.Left - taskbar.TaskbarRect.Left) - trayEffectiveRegion.Left,
                         trayEffectiveRegion.Width));
                 }
 
-                if (settings.ShowWidgets)
+                if (widgetsSegmentEnabled && widgetsEffectiveRegion.Top > 0)
                 {
                     peekRanges.Add((widgetsEffectiveRegion.Left, widgetsEffectiveRegion.Width));
                 }
+
+                // The enabled segments reach the screen edge by themselves, so
+                // no peek strip is drawn at all in this state.
+                bool peekOmitted = anySegmentEnabled && peekRanges.Count == 0;
 
                 if (mainRegion == IntPtr.Zero)
                 {
@@ -685,7 +700,7 @@ namespace RoundedTB
                     {
                         // Keep the peek strip hit-testable even though no segment
                         // is visible, otherwise the shell can never reveal the bar.
-                        mainRegion = AddPeekStrips(IntPtr.Zero, autoHidePeekRect, peekRanges);
+                        mainRegion = AddPeekStrips(IntPtr.Zero, autoHidePeekRect, peekRanges, !anySegmentEnabled);
                     }
 
                     if (mainRegion == IntPtr.Zero && settings.ShowSegmentsOnHover)
@@ -698,18 +713,32 @@ namespace RoundedTB
                         // branch installs the peek strip above.
                         if (IsAutoHideActive(taskbar.TaskbarHwnd))
                         {
+                            if (!peekOmitted)
+                            {
+                                if (!IsWindowRegionEmpty(taskbar.TaskbarHwnd))
+                                {
+                                    return true;
+                                }
+
+                                // The region is already empty (for example auto-hide
+                                // was switched on after hover mode had hidden every
+                                // segment). Restore the full window so the shell can
+                                // hit-test and hide it; the peek strip is applied once
+                                // it has slid away.
+                                ResetTaskbar(taskbar, settings);
+                                return true;
+                            }
+
+                            // The enabled segment reaches the screen edge by
+                            // itself. Keep a segment that is already applied so the
+                            // retract animation stays visible; an empty region is
+                            // the original hover-mode resting state, and the hover
+                            // poll applies the segment (which includes the peek)
+                            // when the cursor arrives.
                             if (!IsWindowRegionEmpty(taskbar.TaskbarHwnd))
                             {
                                 return true;
                             }
-
-                            // The region is already empty (for example auto-hide
-                            // was switched on after hover mode had hidden every
-                            // segment). Restore the full window so the shell can
-                            // hit-test and hide it; the peek strip is applied once
-                            // it has slid away.
-                            ResetTaskbar(taskbar, settings);
-                            return true;
                         }
 
                         // Hover mode intentionally hides every segment at rest.
@@ -741,7 +770,7 @@ namespace RoundedTB
                 }
                 else if (autoHideState == AutoHideState.Hidden)
                 {
-                    mainRegion = AddPeekStrips(mainRegion, autoHidePeekRect, peekRanges);
+                    mainRegion = AddPeekStrips(mainRegion, autoHidePeekRect, peekRanges, !anySegmentEnabled);
                 }
 
                 // Apply the final region to the taskbar
