@@ -44,6 +44,7 @@ namespace RoundedTB
         public bool isAlreadyRunning = false;
         private bool originalAutoHideWasEnabled;
         private bool originalAutoHideStateCaptured;
+        private bool autoHideStateChangedByUs;
         public Background background;
         public Interaction interaction;
         private HwndSource source;
@@ -318,7 +319,6 @@ namespace RoundedTB
             keepRunningCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             KeepRunningTrayCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
-            CaptureOriginalAutoHideState();
             interaction.AddLog($"Startup: exe={Environment.ProcessPath}, taskbars={taskbarDetails.Count}");
 
             ApplyButton_Click(null, null);
@@ -436,35 +436,38 @@ namespace RoundedTB
             Dispatcher.PushFrame(frame);
         }
 
-        private void CaptureOriginalAutoHideState()
+        /// <summary>
+        /// Reads the Windows auto-hide setting from the taskbar layout. The
+        /// live appbar state is not reliable at startup (it can still read as
+        /// AlwaysOnTop before Explorer applies the setting), and using it once
+        /// could permanently disable the user's auto-hide.
+        /// </summary>
+        private static bool? ReadWindowsAutoHideSetting()
         {
-            if (originalAutoHideStateCaptured)
+            try
             {
-                return;
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3"))
+                {
+                    if (key?.GetValue("Settings") is byte[] settings && settings.Length > 8)
+                    {
+                        return (settings[8] & 0x02) != 0;
+                    }
+                }
+            }
+            catch (Exception)
+            {
             }
 
-            if (taskbarDetails.Count == 0 || taskbarDetails[0].TaskbarHwnd == IntPtr.Zero)
-            {
-                return;
-            }
-
-            LocalPInvoke.AppBarStates state = Taskbar.GetTaskbarState(taskbarDetails[0].TaskbarHwnd);
-            originalAutoHideWasEnabled = (state & LocalPInvoke.AppBarStates.AutoHide) == LocalPInvoke.AppBarStates.AutoHide;
-            originalAutoHideStateCaptured = true;
-            interaction.AddLog($"Original Windows auto-hide: {originalAutoHideWasEnabled}");
+            return null;
         }
 
         public void AutoHide(bool enabled, List<Types.Taskbar> taskbarDetails)
         {
-            CaptureOriginalAutoHideState();
-            if (!originalAutoHideStateCaptured)
-            {
-                return;
-            }
-
-            // RoundedTB's Always hide option drives the shell's appbar auto-hide.
-            // When it is off, restore whatever Windows had before RoundedTB ran.
-            bool autoHide = (enabled && activeSettings.AutoHide > 0) || originalAutoHideWasEnabled;
+            // Only RoundedTB's Always hide option drives the shell's appbar
+            // auto-hide. Always show follows the Windows setting: it must never
+            // turn auto-hide off just because the appbar state was stale.
+            bool wantAutoHide = enabled && activeSettings.AutoHide > 0;
+            bool? windowsAutoHide = wantAutoHide ? (bool?)null : ReadWindowsAutoHideSetting();
 
             foreach (Types.Taskbar taskbar in taskbarDetails)
             {
@@ -474,7 +477,58 @@ namespace RoundedTB
                 }
 
                 LocalPInvoke.SetWindowPos(taskbar.TaskbarHwnd, new IntPtr(-1), 0, 0, 0, 0, LocalPInvoke.SetWindowPosFlags.IgnoreMove | LocalPInvoke.SetWindowPosFlags.IgnoreResize);
-                Taskbar.SetTaskbarState(autoHide ? LocalPInvoke.AppBarStates.AutoHide : LocalPInvoke.AppBarStates.AlwaysOnTop, taskbar.TaskbarHwnd);
+
+                LocalPInvoke.AppBarStates currentState = Taskbar.GetTaskbarState(taskbar.TaskbarHwnd);
+                bool currentAutoHide = (currentState & LocalPInvoke.AppBarStates.AutoHide) == LocalPInvoke.AppBarStates.AutoHide;
+
+                if (wantAutoHide)
+                {
+                    if (!originalAutoHideStateCaptured)
+                    {
+                        // Capture the state right before we change it, not during
+                        // startup when the shell may not be ready.
+                        originalAutoHideWasEnabled = currentAutoHide;
+                        originalAutoHideStateCaptured = true;
+                        interaction.AddLog($"Windows auto-hide before Always hide: {originalAutoHideWasEnabled}");
+                    }
+
+                    if (!currentAutoHide)
+                    {
+                        Taskbar.SetTaskbarState(LocalPInvoke.AppBarStates.AutoHide, taskbar.TaskbarHwnd);
+                    }
+                    autoHideStateChangedByUs = true;
+                }
+                else if (windowsAutoHide.HasValue)
+                {
+                    // Always show: make the shell state match the Windows setting.
+                    // This also repairs a state left behind by an older build.
+                    if (currentAutoHide != windowsAutoHide.Value)
+                    {
+                        Taskbar.SetTaskbarState(
+                            windowsAutoHide.Value ? LocalPInvoke.AppBarStates.AutoHide : LocalPInvoke.AppBarStates.AlwaysOnTop,
+                            taskbar.TaskbarHwnd);
+                    }
+                }
+                else if (autoHideStateChangedByUs && originalAutoHideStateCaptured)
+                {
+                    // Registry unavailable: restore what Windows had before
+                    // RoundedTB's Always hide.
+                    bool restoreAutoHide = originalAutoHideWasEnabled;
+                    if (currentAutoHide != restoreAutoHide)
+                    {
+                        Taskbar.SetTaskbarState(
+                            restoreAutoHide ? LocalPInvoke.AppBarStates.AutoHide : LocalPInvoke.AppBarStates.AlwaysOnTop,
+                            taskbar.TaskbarHwnd);
+                    }
+                }
+            }
+
+            if (!wantAutoHide)
+            {
+                autoHideStateChangedByUs = false;
+                // Re-read the Windows state next time Always hide is selected,
+                // in case the user changed the setting in the meantime.
+                originalAutoHideStateCaptured = false;
             }
         }
 
@@ -513,7 +567,6 @@ namespace RoundedTB
             }
 
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
-            CaptureOriginalAutoHideState();
 
             bool expectTray = activeSettings.ShowTray
                 || (activeSettings.ShowSegmentsOnHover && (activeSettings.TrayHoverEnabled ?? true));
@@ -540,6 +593,10 @@ namespace RoundedTB
             }
 
             ApplyTaskbarRegionsDirect();
+            // Apply the auto-hide state now that the taskbar really exists. This
+            // is a no-op for Always show, which must never touch the Windows
+            // auto-hide setting.
+            AutoHide(true, taskbarDetails);
             StartTaskbarWorkerIfNeeded();
             interaction.AddLog("Startup coordinator: taskbar ready, regions applied");
             return true;
