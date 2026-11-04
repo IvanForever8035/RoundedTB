@@ -16,6 +16,7 @@ namespace RoundedTB
         bool redrawOverride = false;
         int infrequentCount = 0;
         int periodicRefresh = 0;
+        long lastAutoHideReassert = 0;
 
         public Background()
         {
@@ -306,10 +307,10 @@ namespace RoundedTB
                                             settings.ShowTray = true;
                                             taskbars[current].Ignored = true;
                                         }
-                                        else if (!isHoveringOverTray)
+                                        else if (!isHoveringOverTray && settings.ShowTray)
                                         {
-                                            taskbars[current].Ignored = true;
                                             settings.ShowTray = false;
+                                            taskbars[current].Ignored = true;
                                         }
                                     }
                                     else if (settings.ShowTray)
@@ -328,10 +329,10 @@ namespace RoundedTB
                                             settings.ShowWidgets = true;
                                             taskbars[current].Ignored = true;
                                         }
-                                        else if (!isHoveringOverWidgets)
+                                        else if (!isHoveringOverWidgets && settings.ShowWidgets)
                                         {
-                                            taskbars[current].Ignored = true;
                                             settings.ShowWidgets = false;
+                                            taskbars[current].Ignored = true;
                                         }
                                     }
 
@@ -375,6 +376,25 @@ namespace RoundedTB
                         if (ReferenceEquals(mw.taskbarDetails, originalTaskbars))
                         {
                             mw.taskbarDetails = taskbars;
+                        }
+
+                        // Explorer can drop or reset the appbar auto-hide state
+                        // after a while (display changes, fullscreen apps, shell
+                        // restarts), which leaves the taskbar permanently shown.
+                        // Re-align the shell state with the Windows setting every
+                        // few seconds; AutoHide only calls SetTaskbarState when the
+                        // states actually differ.
+                        if (Environment.TickCount64 - lastAutoHideReassert >= 5000)
+                        {
+                            lastAutoHideReassert = Environment.TickCount64;
+                            try
+                            {
+                                List<Types.Taskbar> autoHideTaskbars = taskbars;
+                                mw.Dispatcher.Invoke(new Action(() => mw.AutoHide(true, autoHideTaskbars)));
+                            }
+                            catch (Exception)
+                            {
+                            }
                         }
 
                         // Explorer can reset the taskbar region during logon and
