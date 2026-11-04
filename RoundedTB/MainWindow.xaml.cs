@@ -45,6 +45,7 @@ namespace RoundedTB
         private bool originalAutoHideWasEnabled;
         private bool originalAutoHideStateCaptured;
         private bool autoHideStateChangedByUs;
+        private long lastAutoHideAlignment;
         public Background background;
         public Interaction interaction;
         private HwndSource source;
@@ -690,6 +691,43 @@ namespace RoundedTB
             return IntPtr.Zero;
         }
 
+        /// <summary>
+        /// Explorer can drop or reset the appbar auto-hide state after system
+        /// settings changes, display changes or resume from sleep. Those events
+        /// are broadcast to top-level windows, so re-align the state only when
+        /// they occur instead of polling on a timer.
+        /// </summary>
+        private IntPtr SystemStateHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            const int WM_SETTINGCHANGE = 0x001A;
+            const int WM_DISPLAYCHANGE = 0x007E;
+            const int WM_POWERBROADCAST = 0x0218;
+            const int WM_DPICHANGED = 0x02E0;
+
+            if (msg == WM_SETTINGCHANGE || msg == WM_DISPLAYCHANGE ||
+                msg == WM_POWERBROADCAST || msg == WM_DPICHANGED)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (taskbarDetails == null || taskbarDetails.Count == 0)
+                    {
+                        return;
+                    }
+
+                    // These messages can arrive in bursts; coalesce them.
+                    if (Environment.TickCount64 - lastAutoHideAlignment < 1000)
+                    {
+                        return;
+                    }
+
+                    lastAutoHideAlignment = Environment.TickCount64;
+                    AutoHide(true, taskbarDetails);
+                }));
+            }
+
+            return IntPtr.Zero;
+        }
+
         public void ApplyButton_Click(object sender, RoutedEventArgs e)
         {
             int mt = 0;
@@ -1077,6 +1115,7 @@ namespace RoundedTB
             source.AddHook(interaction.HwndHook);
             taskbarCreatedMessage = LocalPInvoke.RegisterWindowMessage("TaskbarCreated");
             source.AddHook(TaskbarCreatedHook);
+            source.AddHook(SystemStateHook);
             bool wtf = LocalPInvoke.RegisterHotKey(handle, 9000, 0x8, 0x71);
             bool appListHotkey = LocalPInvoke.RegisterHotKey(handle, 9001, 0x8, 0x72);
             Debug.WriteLine("KEY: " + wtf);
