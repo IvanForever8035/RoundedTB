@@ -1027,6 +1027,7 @@ namespace RoundedTB
 
             // On recent Windows 11 builds the legacy app list window only covers the
             // first few buttons; the XAML bridge has the real button positions.
+            int legacyAppListRight = rectAppList.Right;
             int uiaAppListRight = GetAppListRightFromUia(hwndBridge);
             if (uiaAppListRight > 0)
             {
@@ -1042,6 +1043,7 @@ namespace RoundedTB
                 TaskbarRect = rectMain,
                 TrayRect = rectTray,
                 AppListRect = rectAppList,
+                LegacyAppListRight = legacyAppListRight,
                 RecoveryHrgn = hrgnMain,
                 ScaleFactor = Convert.ToDouble(LocalPInvoke.GetDpiForWindow(hwndMain)) / 96.00,
                 TaskbarRes = $"{rectMain.Right - rectMain.Left} x {rectMain.Bottom - rectMain.Top}",
@@ -1091,6 +1093,7 @@ namespace RoundedTB
                     {
                         rectSecTray = secUiaTrayRect;
                     }
+                    int secLegacyAppListRight = rectSecAppList.Right;
                     int secUiaRight = GetAppListRightFromUia(hwndSecBridge);
                     if (secUiaRight > 0)
                     {
@@ -1105,6 +1108,7 @@ namespace RoundedTB
                         TaskbarRect = rectCurrent,
                         TrayRect = rectSecTray,
                         AppListRect = rectSecAppList,
+                        LegacyAppListRight = secLegacyAppListRight,
                         RecoveryHrgn = hrgnCurrent,
                         ScaleFactor = Convert.ToDouble(LocalPInvoke.GetDpiForWindow(hwndCurrent)) / 96.00,
                         TaskbarRes = $"{rectCurrent.Right - rectCurrent.Left} x {rectCurrent.Bottom - rectCurrent.Top}",
