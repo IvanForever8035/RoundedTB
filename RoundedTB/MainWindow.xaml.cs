@@ -710,16 +710,41 @@ namespace RoundedTB
             if (shellHookMessage != 0 && msg == shellHookMessage)
             {
                 // HSHELL_WINDOWCREATED = 1, HSHELL_WINDOWDESTROYED = 2.
-                // The app button extent depends on how many windows are open,
-                // so request a fresh measurement instead of polling UIA.
+                // Ignore created tool/owned windows: they never add a taskbar
+                // button, and waking UIA for them would keep the native cache
+                // growing. A closed window can no longer be inspected, so its
+                // event always asks for a measurement.
                 int code = wParam.ToInt32();
-                if (code == 1 || code == 2)
+                bool taskbarChanged = code == 2 || (code == 1 && IsTaskbarWindow(lParam));
+                if (taskbarChanged)
                 {
                     background?.RequestAppListRefresh();
                 }
             }
 
             return IntPtr.Zero;
+        }
+
+        private static bool IsTaskbarWindow(IntPtr hwnd)
+        {
+            if (hwnd == IntPtr.Zero)
+            {
+                return true;
+            }
+
+            int exStyle = LocalPInvoke.GetWindowLong(hwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
+            if ((exStyle & LocalPInvoke.WS_EX_TOOLWINDOW) != 0)
+            {
+                return false;
+            }
+
+            if ((exStyle & LocalPInvoke.WS_EX_APPWINDOW) == 0
+                && LocalPInvoke.GetWindow(hwnd, LocalPInvoke.GW_OWNER) != IntPtr.Zero)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>

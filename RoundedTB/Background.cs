@@ -140,11 +140,11 @@ namespace RoundedTB
                             // Refresh the real app-button extent from the Windows 11
                             // XAML taskbar. The legacy window stops at the first few
                             // buttons. The tray extent is only re-measured when the
-                            // legacy rect is missing or every 10 seconds: the UIA
+                            // legacy rect is missing or every 30 seconds: the UIA
                             // query walks the whole taskbar tree and the legacy rect
                             // is authoritative when present.
                             uiaTrayCount++;
-                            bool refreshTrayUia = uiaTrayCount >= 10;
+                            bool refreshTrayUia = uiaTrayCount >= 30;
                             if (refreshTrayUia)
                             {
                                 uiaTrayCount = 0;
@@ -152,9 +152,11 @@ namespace RoundedTB
 
                             // Coalesce window events without losing a request queued
                             // while measurements are running. Refresh every bridge.
+                            // The fallback is only a safety net for a missed shell
+                            // event, so it can be much slower than one second.
                             bool appListRequested = System.Threading.Interlocked.Exchange(ref appListRefreshRequested, 0) != 0;
                             appListFallbackCount++;
-                            bool refreshAppList = appListRequested || appListFallbackCount >= 10;
+                            bool refreshAppList = appListRequested || appListFallbackCount >= 30;
                             if (refreshAppList)
                             {
                                 appListFallbackCount = 0;
