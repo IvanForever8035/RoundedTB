@@ -906,24 +906,78 @@ namespace RoundedTB
                 System.Windows.Automation.Condition condition = new System.Windows.Automation.PropertyCondition(
                     AutomationElement.ClassNameProperty,
                     "Taskbar.TaskListButtonAutomationPeer");
-                AutomationElementCollection buttons = bridge.FindAll(TreeScope.Descendants, condition);
-
-                double right = 0;
-                foreach (AutomationElement button in buttons)
+                try
                 {
-                    double buttonRight = button.Current.BoundingRectangle.Right;
-                    if (buttonRight > right)
+                    int cachedRight = ReadAppListRight(FindWithCachedBounds(bridge, condition, includeClassName: false), cached: true);
+                    if (cachedRight > 0)
                     {
-                        right = buttonRight;
+                        return cachedRight;
                     }
                 }
+                catch (Exception)
+                {
+                    // Some providers cannot supply a useful cached result.
+                }
 
-                return right > 0 ? (int)Math.Ceiling(right) : 0;
+                return ReadAppListRight(bridge.FindAll(TreeScope.Descendants, condition), cached: false);
             }
             catch (Exception)
             {
                 return 0;
             }
+        }
+
+        private static AutomationElementCollection FindWithCachedBounds(AutomationElement bridge,
+            System.Windows.Automation.Condition condition, bool includeClassName)
+        {
+            CacheRequest request = new CacheRequest
+            {
+                AutomationElementMode = AutomationElementMode.None,
+                TreeFilter = Automation.RawViewCondition,
+                TreeScope = TreeScope.Element
+            };
+            request.Add(AutomationElement.BoundingRectangleProperty);
+            if (includeClassName)
+            {
+                request.Add(AutomationElement.ClassNameProperty);
+            }
+
+            using (request.Activate())
+            {
+                return bridge.FindAll(TreeScope.Descendants, condition);
+            }
+        }
+
+        private static Rect ReadUiaBounds(AutomationElement element, bool cached)
+        {
+            if (!cached)
+            {
+                return element.Current.BoundingRectangle;
+            }
+
+            if (element.GetCachedPropertyValue(AutomationElement.BoundingRectangleProperty, true) is Rect bounds)
+            {
+                return bounds;
+            }
+
+            // An incomplete batch must fall back rather than clip the segment
+            // to only the elements that happened to return bounds.
+            throw new InvalidOperationException("The UIA provider did not cache an element's bounds.");
+        }
+
+        private static int ReadAppListRight(AutomationElementCollection buttons, bool cached)
+        {
+            double right = 0;
+            foreach (AutomationElement button in buttons)
+            {
+                double buttonRight = ReadUiaBounds(button, cached).Right;
+                if (buttonRight > right)
+                {
+                    right = buttonRight;
+                }
+            }
+
+            return right > 0 ? (int)Math.Ceiling(right) : 0;
         }
 
         /// <summary>
@@ -946,49 +1000,65 @@ namespace RoundedTB
                     return false;
                 }
 
-                AutomationElementCollection elements = bridge.FindAll(
-                    TreeScope.Descendants,
-                    System.Windows.Automation.Condition.TrueCondition);
-
-                int left = int.MaxValue;
-                int top = int.MaxValue;
-                int right = int.MinValue;
-                int bottom = int.MinValue;
-                foreach (AutomationElement element in elements)
+                System.Windows.Automation.Condition condition = System.Windows.Automation.Condition.TrueCondition;
+                try
                 {
-                    string className = element.Current.ClassName;
-                    if (string.IsNullOrEmpty(className) || !className.StartsWith("SystemTray."))
+                    AutomationElementCollection elements = FindWithCachedBounds(bridge, condition, includeClassName: true);
+                    if (TryReadTrayBounds(elements, cached: true, out trayRect))
                     {
-                        continue;
+                        return true;
                     }
-
-                    var rect = element.Current.BoundingRectangle;
-                    if (rect.Width <= 0 || rect.Height <= 0)
-                    {
-                        continue;
-                    }
-
-                    left = Math.Min(left, (int)rect.Left);
-                    top = Math.Min(top, (int)rect.Top);
-                    right = Math.Max(right, (int)rect.Right);
-                    bottom = Math.Max(bottom, (int)rect.Bottom);
+                }
+                catch (Exception)
+                {
+                    // Fall back to the live properties if caching is unavailable.
                 }
 
-                if (right <= left)
-                {
-                    return false;
-                }
-
-                trayRect.Left = left;
-                trayRect.Top = top;
-                trayRect.Right = right;
-                trayRect.Bottom = bottom;
-                return true;
+                return TryReadTrayBounds(bridge.FindAll(TreeScope.Descendants, condition), cached: false, out trayRect);
             }
             catch (Exception)
             {
                 return false;
             }
+        }
+
+        private static bool TryReadTrayBounds(AutomationElementCollection elements, bool cached, out LocalPInvoke.RECT trayRect)
+        {
+            trayRect = default;
+            int left = int.MaxValue;
+            int top = int.MaxValue;
+            int right = int.MinValue;
+            int bottom = int.MinValue;
+            foreach (AutomationElement element in elements)
+            {
+                string className = (cached ? element.Cached : element.Current).ClassName;
+                if (string.IsNullOrEmpty(className) || !className.StartsWith("SystemTray.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var rect = ReadUiaBounds(element, cached);
+                if (rect.Width <= 0 || rect.Height <= 0)
+                {
+                    continue;
+                }
+
+                left = Math.Min(left, (int)rect.Left);
+                top = Math.Min(top, (int)rect.Top);
+                right = Math.Max(right, (int)rect.Right);
+                bottom = Math.Max(bottom, (int)rect.Bottom);
+            }
+
+            if (right <= left)
+            {
+                return false;
+            }
+
+            trayRect.Left = left;
+            trayRect.Top = top;
+            trayRect.Right = right;
+            trayRect.Bottom = bottom;
+            return true;
         }
 
         /// <summary>
@@ -997,8 +1067,10 @@ namespace RoundedTB
         /// <returns>
         /// A list of taskbars populated with information about their size, handles etc.
         /// </returns>
-        public static List<Types.Taskbar> GenerateTaskbarInfo(bool measureAppList = true)
+        public static List<Types.Taskbar> GenerateTaskbarInfo(Types.Settings settings)
         {
+            bool measureAppList = NeedsAppListMeasurement(settings);
+            bool measureTray = settings.IsDynamic;
             List<Types.Taskbar> retVal = new List<Types.Taskbar>();
 
             IntPtr hwndMain = LocalPInvoke.FindWindowExA(IntPtr.Zero, IntPtr.Zero, "Shell_TrayWnd", null); // Find main taskbar
@@ -1012,7 +1084,7 @@ namespace RoundedTB
 
             // The legacy tray window can report an empty rect while the XAML tray
             // is already laid out; use the UIA tray bounds in that case.
-            if (rectTray.Right <= rectTray.Left && GetTrayRectFromUia(hwndBridge, out LocalPInvoke.RECT uiaTrayRect))
+            if (measureTray && rectTray.Right <= rectTray.Left && GetTrayRectFromUia(hwndBridge, out LocalPInvoke.RECT uiaTrayRect))
             {
                 rectTray = uiaTrayRect;
             }
@@ -1084,7 +1156,7 @@ namespace RoundedTB
                     IntPtr hwndSecAppList = LocalPInvoke.FindWindowExA(LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "WorkerW", null), IntPtr.Zero, "MSTaskListWClass", null); // Get the handle to the main taskbar's app list
                     LocalPInvoke.GetWindowRect(hwndSecAppList, out LocalPInvoke.RECT rectSecAppList);// Get the RECT for this secondary taskbar's app list
                     IntPtr hwndSecBridge = LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "Windows.UI.Composition.DesktopWindowContentBridge", null);
-                    if (rectSecTray.Right <= rectSecTray.Left && GetTrayRectFromUia(hwndSecBridge, out LocalPInvoke.RECT secUiaTrayRect))
+                    if (measureTray && rectSecTray.Right <= rectSecTray.Left && GetTrayRectFromUia(hwndSecBridge, out LocalPInvoke.RECT secUiaTrayRect))
                     {
                         rectSecTray = secUiaTrayRect;
                     }

@@ -155,10 +155,10 @@ namespace RoundedTB
                             // The fallback is only a safety net for a missed shell
                             // event, so it can be much slower than one second.
                             bool appListRequested = System.Threading.Interlocked.Exchange(ref appListRefreshRequested, 0) != 0;
-                            bool measureAppList = Taskbar.NeedsAppListMeasurement(mw.activeSettings);
-                            appListFallbackCount++;
-                            bool refreshAppList = measureAppList && (appListRequested || appListFallbackCount >= 30);
-                            if (refreshAppList)
+                            Types.Settings measurementSettings = mw.activeSettings;
+                            bool measureAppList = Taskbar.NeedsAppListMeasurement(measurementSettings);
+                            bool refreshAppList = measureAppList && (++appListFallbackCount >= 30 || appListRequested);
+                            if (!measureAppList || refreshAppList)
                             {
                                 appListFallbackCount = 0;
                             }
@@ -191,7 +191,7 @@ namespace RoundedTB
 
                                 try
                                 {
-                                    if (refreshTrayUia || tb.TrayRect.Right <= tb.TrayRect.Left)
+                                    if (measurementSettings.IsDynamic && (refreshTrayUia || tb.TrayRect.Right <= tb.TrayRect.Left))
                                     {
                                         if (Taskbar.GetTrayRectFromUia(tb.BridgeHwnd, out LocalPInvoke.RECT uiaTrayRect))
                                         {
@@ -217,20 +217,22 @@ namespace RoundedTB
                         List<Types.Taskbar> originalTaskbars = taskbars;
                         Types.Settings settings = mw.activeSettings;
                         bool showAppList = settings.ShowAppList ?? true;
+                        bool needsAppList = Taskbar.NeedsAppListMeasurement(settings);
 
                         // If the number of taskbars has changed, regenerate taskbar information
                         if (Taskbar.TaskbarCountOrHandleChanged(taskbars.Count, taskbars[0].TaskbarHwnd))
                         {
                             // Forcefully reset taskbars if the taskbar count or main taskbar handle has changed
-                            taskbars = Taskbar.GenerateTaskbarInfo(Taskbar.NeedsAppListMeasurement(mw.activeSettings));
+                            taskbars = Taskbar.GenerateTaskbarInfo(settings);
                             Debug.WriteLine("Regenerating taskbar info");
                         }
 
                         for (int current = 0; current < taskbars.Count; current++)
                         {
-                            if (taskbars[current].TaskbarHwnd == IntPtr.Zero || taskbars[current].AppListHwnd == IntPtr.Zero)
+                            if (taskbars[current].TaskbarHwnd == IntPtr.Zero ||
+                                (needsAppList && taskbars[current].AppListHwnd == IntPtr.Zero))
                             {
-                                taskbars = Taskbar.GenerateTaskbarInfo(Taskbar.NeedsAppListMeasurement(mw.activeSettings));
+                                taskbars = Taskbar.GenerateTaskbarInfo(settings);
                                 Debug.WriteLine("Regenerating taskbar info due to a missing handle");
                                 break;
                             }

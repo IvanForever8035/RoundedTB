@@ -322,7 +322,7 @@ namespace RoundedTB
             autoHideComboBox.SelectedIndex = activeSettings.AutoHide;
             keepRunningCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             KeepRunningTrayCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
-            List<Types.Taskbar> startupTaskbars = Taskbar.GenerateTaskbarInfo(Taskbar.NeedsAppListMeasurement(activeSettings));
+            List<Types.Taskbar> startupTaskbars = Taskbar.GenerateTaskbarInfo(activeSettings);
             taskbarDetails = startupTaskbars;
             interaction.AddLog($"Startup: exe={Environment.ProcessPath}, taskbars={startupTaskbars.Count}");
 
@@ -548,14 +548,13 @@ namespace RoundedTB
             IntPtr hwndRebar = LocalPInvoke.FindWindowExA(hwndMain, IntPtr.Zero, "ReBarWindow32", null);
             IntPtr hwndAppList = LocalPInvoke.FindWindowExA(hwndRebar, IntPtr.Zero, "MSTaskSwWClass", null);
             IntPtr hwndTray = LocalPInvoke.FindWindowExA(hwndMain, IntPtr.Zero, "TrayNotifyWnd", null);
-            if (hwndAppList == IntPtr.Zero || hwndTray == IntPtr.Zero)
+            bool expectTray = activeSettings.IsDynamic && (activeSettings.ShowTray
+                || (activeSettings.ShowSegmentsOnHover && (activeSettings.TrayHoverEnabled ?? true)));
+            bool expectAppList = Taskbar.NeedsAppListMeasurement(activeSettings);
+            if ((expectAppList && hwndAppList == IntPtr.Zero) || (expectTray && hwndTray == IntPtr.Zero))
             {
                 return false;
             }
-
-            bool expectTray = activeSettings.ShowTray
-                || (activeSettings.ShowSegmentsOnHover && (activeSettings.TrayHoverEnabled ?? true));
-            bool expectAppList = Taskbar.NeedsAppListMeasurement(activeSettings);
 
             // The constructor has just measured these same windows on the already-ready
             // path. Explorer restarts and retries always take a fresh measurement.
@@ -568,7 +567,7 @@ namespace RoundedTB
                 && TaskbarBoundsReady(startupTaskbars, expectTray, expectAppList, logNotReady: false);
             if (!reuseStartupTaskbars)
             {
-                taskbarDetails = Taskbar.GenerateTaskbarInfo(Taskbar.NeedsAppListMeasurement(activeSettings));
+                taskbarDetails = Taskbar.GenerateTaskbarInfo(activeSettings);
                 if (!TaskbarBoundsReady(taskbarDetails, expectTray, expectAppList, logNotReady: true))
                 {
                     return false;
@@ -813,6 +812,8 @@ namespace RoundedTB
                 }
             }
 
+            bool wasDynamic = activeSettings.IsDynamic;
+            bool neededAppList = Taskbar.NeedsAppListMeasurement(activeSettings);
             activeSettings.AutoHide = autoHideComboBox.SelectedIndex;
             activeSettings.IsDynamic = (bool)dynamicCheckBox.IsChecked;
             activeSettings.IsCentred = Taskbar.CheckIfCentred();
@@ -834,20 +835,25 @@ namespace RoundedTB
             activeSettings.FillOnTaskSwitch = (bool)fillAltTabCheckBox.IsChecked;
 
             bool showAppList = activeSettings.ShowAppList ?? true;
-            if (Taskbar.NeedsAppListMeasurement(activeSettings))
-            {
-                // The background loop skips this measurement while the app
-                // segment is off, so make the first applied region exact when
-                // the setting turns it back on.
-                foreach (Types.Taskbar taskbar in taskbarDetails)
-                {
-                    Taskbar.MeasureAppList(taskbar);
-                }
-            }
+            bool refreshAppList = !neededAppList && Taskbar.NeedsAppListMeasurement(activeSettings);
+            bool refreshTray = !wasDynamic && activeSettings.IsDynamic;
             try
             {
                 foreach (Types.Taskbar taskbar in taskbarDetails)
                 {
+                    // Refresh measurements skipped in the previous mode before
+                    // applying a region that depends on them.
+                    if (refreshAppList && !Taskbar.MeasureAppList(taskbar))
+                    {
+                        background.RequestAppListRefresh();
+                    }
+
+                    if (refreshTray && taskbar.TrayRect.Right <= taskbar.TrayRect.Left
+                        && Taskbar.GetTrayRectFromUia(taskbar.BridgeHwnd, out LocalPInvoke.RECT trayRect))
+                    {
+                        taskbar.TrayRect = trayRect;
+                    }
+
                     int isFullTest = taskbar.TrayRect.Left - taskbar.AppListRect.Right;
                     if (!activeSettings.IsDynamic || (showAppList && isFullTest <= taskbar.ScaleFactor * 25 && isFullTest > 0 && taskbar.TrayRect.Left != 0))
                     {
