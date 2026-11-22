@@ -17,8 +17,6 @@ namespace RoundedTB
             public LocalPInvoke.RECT TaskbarRect { get; set; } // Bounding box for the taskbar
             public LocalPInvoke.RECT TrayRect { get; set; }  // Bounding box for the tray (dynamic)
             public LocalPInvoke.RECT AppListRect { get; set; } // Bounding box for the list of pinned & open apps (dynamic)
-            public int LegacyAppListRight { get; set; } // Right edge last reported by the legacy app list window
-            public DateTime LastAppListUiaUtc { get; set; } // Last time the app list was measured through UIA
             public IntPtr RecoveryHrgn { get; set; } // Pointer to the recovery region for any given taskbar. Defaults to IntPtr.Zero
             public double ScaleFactor { get; set; } // The scale factor of the monitor the taskbar is on
             public string TaskbarRes { get; set; } // Resolution of the taskbar as text

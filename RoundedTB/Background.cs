@@ -140,6 +140,22 @@ namespace RoundedTB
 
                                 try
                                 {
+                                    int uiaRight = (int)mw.Dispatcher.Invoke(
+                                        new Func<int>(() => Taskbar.GetAppListRightFromUia(tb.BridgeHwnd)));
+                                    if (uiaRight > 0 && uiaRight != tb.AppListRect.Right)
+                                    {
+                                        LocalPInvoke.RECT appListRect = tb.AppListRect;
+                                        appListRect.Right = uiaRight;
+                                        tb.AppListRect = appListRect;
+                                        tb.Ignored = true;
+                                    }
+                                }
+                                catch (Exception)
+                                {
+                                }
+
+                                try
+                                {
                                     if (refreshTrayUia || tb.TrayRect.Right <= tb.TrayRect.Left)
                                     {
                                         if (Taskbar.GetTrayRectFromUia(tb.BridgeHwnd, out LocalPInvoke.RECT uiaTrayRect))
@@ -189,36 +205,6 @@ namespace RoundedTB
                             }
                             // Get the latest quick details of this taskbar
                             Types.Taskbar newTaskbar = Taskbar.GetQuickTaskbarRects(taskbars[current].TaskbarHwnd, taskbars[current].TrayHwnd, taskbars[current].AppListHwnd);
-
-                            // Re-measure the real app-button extent from the XAML
-                            // taskbar only when the legacy window reports a new right
-                            // edge, with a 10 second fallback. The legacy window
-                            // changes whenever apps open or close, so this is still
-                            // immediate in practice while avoiding a full UIA tree
-                            // walk on every tick.
-                            bool legacyAppListChanged = newTaskbar.AppListRect.Right != taskbars[current].LegacyAppListRight;
-                            taskbars[current].LegacyAppListRight = newTaskbar.AppListRect.Right;
-                            IntPtr appListBridge = taskbars[current].BridgeHwnd;
-                            if (appListBridge != IntPtr.Zero &&
-                                (legacyAppListChanged || (DateTime.UtcNow - taskbars[current].LastAppListUiaUtc).TotalSeconds >= 10))
-                            {
-                                taskbars[current].LastAppListUiaUtc = DateTime.UtcNow;
-                                try
-                                {
-                                    int uiaRight = (int)mw.Dispatcher.Invoke(
-                                        new Func<int>(() => Taskbar.GetAppListRightFromUia(appListBridge)));
-                                    if (uiaRight > 0 && uiaRight != taskbars[current].AppListRect.Right)
-                                    {
-                                        LocalPInvoke.RECT appListRect = taskbars[current].AppListRect;
-                                        appListRect.Right = uiaRight;
-                                        taskbars[current].AppListRect = appListRect;
-                                        taskbars[current].Ignored = true;
-                                    }
-                                }
-                                catch (Exception)
-                                {
-                                }
-                            }
 
                             // Keep the UIA-measured app button right edge instead of the
                             // (possibly much shorter) legacy MSTaskSwWClass rect.
