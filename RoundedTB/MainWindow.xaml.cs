@@ -54,7 +54,6 @@ namespace RoundedTB
         private DispatcherTimer startupCoordinator;
         private int taskbarCreatedMessage;
         private int shellHookMessage;
-        private bool settingsBackdropApplied;
         /// <summary>
         /// Versions:
         /// -1: Canary
@@ -66,6 +65,8 @@ namespace RoundedTB
 
         public MainWindow()
         {
+            WPFUI.Background.Manager.Apply(WPFUI.Background.BackgroundType.Mica, this);
+
             InitializeComponent();
 
             // WPF-UI's TitleBar calls Application.Shutdown() by default when
@@ -357,7 +358,7 @@ namespace RoundedTB
                 aw.ShowDialog();
                 try
                 {
-                    PrepareSettingsWindow();
+                    EnsureWindowOnScreen();
                     Visibility = Visibility.Visible;
                 }
                 catch (InvalidOperationException)
@@ -732,16 +733,25 @@ namespace RoundedTB
                 return true;
             }
 
-            int exStyle = LocalPInvoke.GetWindowLong(hwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
-            if ((exStyle & LocalPInvoke.WS_EX_TOOLWINDOW) != 0)
+            try
             {
-                return false;
-            }
+                long exStyle = LocalPInvoke.GetWindowLong(hwnd, LocalPInvoke.GWL_EXSTYLE).ToInt64() & 0xFFFFFFFFL;
+                if ((exStyle & LocalPInvoke.WS_EX_TOOLWINDOW) != 0)
+                {
+                    return false;
+                }
 
-            if ((exStyle & LocalPInvoke.WS_EX_APPWINDOW) == 0
-                && LocalPInvoke.GetWindow(hwnd, LocalPInvoke.GW_OWNER) != IntPtr.Zero)
+                if ((exStyle & LocalPInvoke.WS_EX_APPWINDOW) == 0
+                    && LocalPInvoke.GetWindow(hwnd, LocalPInvoke.GW_OWNER) != IntPtr.Zero)
+                {
+                    return false;
+                }
+            }
+            catch (Exception)
             {
-                return false;
+                // If the style cannot be read, measure rather than risk
+                // missing a real taskbar button.
+                return true;
             }
 
             return true;
@@ -937,14 +947,8 @@ namespace RoundedTB
             Close();
         }
 
-        private void PrepareSettingsWindow()
+        private void EnsureWindowOnScreen()
         {
-            if (!settingsBackdropApplied)
-            {
-                WPFUI.Background.Manager.Apply(WPFUI.Background.BackgroundType.Mica, this);
-                settingsBackdropApplied = true;
-            }
-
             if (Left <= -10000 || Top <= -10000)
             {
                 WindowStartupLocation = WindowStartupLocation.Manual;
@@ -957,7 +961,7 @@ namespace RoundedTB
 
         private void NotifyIcon_Open(object sender, RoutedEventArgs e)
         {
-            PrepareSettingsWindow();
+            EnsureWindowOnScreen();
             if (!IsVisible)
             {
                 Visibility = Visibility.Visible;
@@ -978,7 +982,7 @@ namespace RoundedTB
         {
             if (IsVisible == false)
             {
-                PrepareSettingsWindow();
+                EnsureWindowOnScreen();
                 Visibility = Visibility.Visible;
                 ShowMenuItem.Header = "Hide RoundedTB";
             }
