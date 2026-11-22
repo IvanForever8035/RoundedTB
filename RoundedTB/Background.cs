@@ -16,6 +16,7 @@ namespace RoundedTB
         bool redrawOverride = false;
         int infrequentCount = 0;
         int periodicRefresh = 0;
+        int uiaTrayCount = 0;
 
         public Background()
         {
@@ -89,18 +90,20 @@ namespace RoundedTB
                         infrequentCount++;
                         if (infrequentCount == 10)
                         {
-                            // Check to see if settings need to be shown
-                            List<IntPtr> windowList = Interaction.GetTopLevelWindows();
-                            foreach (IntPtr hwnd in windowList)
+                            // Check to see if settings need to be shown. A second
+                            // instance renames its own window to request this one,
+                            // so look it up by title instead of enumerating every
+                            // top-level window and allocating two 1 KB buffers per
+                            // window on every tick.
+                            IntPtr settingsRequest = LocalPInvoke.FindWindowW(null, "RoundedTB_SettingsRequest");
+                            if (settingsRequest != IntPtr.Zero)
                             {
-                                StringBuilder windowClass = new StringBuilder(1024);
-                                StringBuilder windowTitle = new StringBuilder(1024);
                                 try
                                 {
-                                    LocalPInvoke.GetClassName(hwnd, windowClass, 1024);
-                                    LocalPInvoke.GetWindowText(hwnd, windowTitle, 1024);
+                                    StringBuilder windowClass = new StringBuilder(256);
+                                    LocalPInvoke.GetClassName(settingsRequest, windowClass, windowClass.Capacity);
 
-                                    if (windowClass.ToString().Contains("HwndWrapper[RoundedTB.exe") && windowTitle.ToString() == "RoundedTB_SettingsRequest")
+                                    if (windowClass.ToString().Contains("HwndWrapper[RoundedTB.exe"))
                                     {
                                         mw.Dispatcher.Invoke(() =>
                                         {
@@ -109,29 +112,25 @@ namespace RoundedTB
                                                 mw.ShowMenuItem_Click(null, null);
                                             }
                                         });
-                                        LocalPInvoke.SetWindowText(hwnd, "RoundedTB");
+                                        LocalPInvoke.SetWindowText(settingsRequest, "RoundedTB");
                                     }
                                 }
                                 catch (Exception) { }
                             }
 
-                            // Update tray icon
-                            mw.Dispatcher.Invoke(() =>
-                            {
-                                try
-                                {
-                                    mw.TrayIconCheck();
-
-                                }
-                                catch (Exception)
-                                {
-
-                                }
-                            });
-
                             // Refresh the real app-button extent from the Windows 11
                             // XAML taskbar. The legacy window stops at the first few
-                            // buttons, so poll this less often than the rects.
+                            // buttons. The tray extent is only re-measured when the
+                            // legacy rect is missing or every 10 seconds: the UIA
+                            // query walks the whole taskbar tree and the legacy rect
+                            // is authoritative when present.
+                            uiaTrayCount++;
+                            bool refreshTrayUia = uiaTrayCount >= 10;
+                            if (refreshTrayUia)
+                            {
+                                uiaTrayCount = 0;
+                            }
+
                             foreach (Types.Taskbar tb in mw.taskbarDetails)
                             {
                                 if (tb.BridgeHwnd == IntPtr.Zero)
@@ -157,13 +156,16 @@ namespace RoundedTB
 
                                 try
                                 {
-                                    if (Taskbar.GetTrayRectFromUia(tb.BridgeHwnd, out LocalPInvoke.RECT uiaTrayRect))
+                                    if (refreshTrayUia || tb.TrayRect.Right <= tb.TrayRect.Left)
                                     {
-                                        if (tb.TrayRect.Left != uiaTrayRect.Left || tb.TrayRect.Top != uiaTrayRect.Top ||
-                                            tb.TrayRect.Right != uiaTrayRect.Right || tb.TrayRect.Bottom != uiaTrayRect.Bottom)
+                                        if (Taskbar.GetTrayRectFromUia(tb.BridgeHwnd, out LocalPInvoke.RECT uiaTrayRect))
                                         {
-                                            tb.TrayRect = uiaTrayRect;
-                                            tb.Ignored = true;
+                                            if (tb.TrayRect.Left != uiaTrayRect.Left || tb.TrayRect.Top != uiaTrayRect.Top ||
+                                                tb.TrayRect.Right != uiaTrayRect.Right || tb.TrayRect.Bottom != uiaTrayRect.Bottom)
+                                            {
+                                                tb.TrayRect = uiaTrayRect;
+                                                tb.Ignored = true;
+                                            }
                                         }
                                     }
                                 }

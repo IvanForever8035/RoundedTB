@@ -123,7 +123,6 @@ namespace RoundedTB
                 Close();
                 return;
             }
-            TrayIconCheck();
 
             string startupLink = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk");
             if (System.IO.File.Exists(startupLink))
@@ -533,24 +532,6 @@ namespace RoundedTB
             }
         }
 
-        public void TrayIconCheck()
-        {
-            
-            Uri resLight = new("pack://application:,,,/res/traylight.ico");
-            Uri resDark = new("pack://application:,,,/res/traydark.ico");
-            WPFUI.Theme.Style style = WPFUI.Theme.Manager.GetSystemTheme();
-
-            //if (style == WPFUI.Theme.Style.Light)
-            //{
-            //    mainTitleBar.NotifyIconImage = new System.Windows.Media.Imaging.BitmapImage(resLight);
-            //}
-            //else
-            //{
-            //    mainTitleBar.NotifyIconImage = new System.Windows.Media.Imaging.BitmapImage(resDark);
-            //}
-        }
-
-
         private bool TryApplyTaskbarRegionsIfReady()
         {
             IntPtr hwndMain = LocalPInvoke.FindWindowExA(IntPtr.Zero, IntPtr.Zero, "Shell_TrayWnd", null);
@@ -813,7 +794,6 @@ namespace RoundedTB
                 AutoHide(true, taskbarDetails);
             }
             interaction.WriteJSON();
-            TrayIconCheck();
             UpdateUi();
 
         }
