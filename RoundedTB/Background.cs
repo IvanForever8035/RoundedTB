@@ -155,8 +155,9 @@ namespace RoundedTB
                             // The fallback is only a safety net for a missed shell
                             // event, so it can be much slower than one second.
                             bool appListRequested = System.Threading.Interlocked.Exchange(ref appListRefreshRequested, 0) != 0;
+                            bool measureAppList = Taskbar.NeedsAppListMeasurement(mw.activeSettings);
                             appListFallbackCount++;
-                            bool refreshAppList = appListRequested || appListFallbackCount >= 30;
+                            bool refreshAppList = measureAppList && (appListRequested || appListFallbackCount >= 30);
                             if (refreshAppList)
                             {
                                 appListFallbackCount = 0;
@@ -221,7 +222,7 @@ namespace RoundedTB
                         if (Taskbar.TaskbarCountOrHandleChanged(taskbars.Count, taskbars[0].TaskbarHwnd))
                         {
                             // Forcefully reset taskbars if the taskbar count or main taskbar handle has changed
-                            taskbars = Taskbar.GenerateTaskbarInfo();
+                            taskbars = Taskbar.GenerateTaskbarInfo(Taskbar.NeedsAppListMeasurement(mw.activeSettings));
                             Debug.WriteLine("Regenerating taskbar info");
                         }
 
@@ -229,7 +230,7 @@ namespace RoundedTB
                         {
                             if (taskbars[current].TaskbarHwnd == IntPtr.Zero || taskbars[current].AppListHwnd == IntPtr.Zero)
                             {
-                                taskbars = Taskbar.GenerateTaskbarInfo();
+                                taskbars = Taskbar.GenerateTaskbarInfo(Taskbar.NeedsAppListMeasurement(mw.activeSettings));
                                 Debug.WriteLine("Regenerating taskbar info due to a missing handle");
                                 break;
                             }

@@ -853,6 +853,37 @@ namespace RoundedTB
         }
 
         /// <summary>
+        /// Whether the dynamic app segment needs the XAML app-button extent.
+        /// </summary>
+        public static bool NeedsAppListMeasurement(Types.Settings settings)
+        {
+            return settings != null && settings.IsDynamic && (settings.ShowAppList ?? true);
+        }
+
+        /// <summary>
+        /// Re-measures a taskbar's app button extent. Used when a setting turns
+        /// the app segment back on, so the first applied region is already exact.
+        /// </summary>
+        public static bool MeasureAppList(Types.Taskbar taskbar)
+        {
+            if (taskbar == null || taskbar.BridgeHwnd == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            int uiaRight = GetAppListRightFromUia(taskbar.BridgeHwnd);
+            if (uiaRight <= 0)
+            {
+                return false;
+            }
+
+            LocalPInvoke.RECT appListRect = taskbar.AppListRect;
+            appListRect.Right = uiaRight;
+            taskbar.AppListRect = appListRect;
+            return true;
+        }
+
+        /// <summary>
         /// Reads the right edge of the real taskbar app buttons from the Windows 11
         /// XAML content bridge. The legacy MSTaskSwWClass window only covers part
         /// of the buttons on recent Windows 11 builds.
@@ -966,7 +997,7 @@ namespace RoundedTB
         /// <returns>
         /// A list of taskbars populated with information about their size, handles etc.
         /// </returns>
-        public static List<Types.Taskbar> GenerateTaskbarInfo()
+        public static List<Types.Taskbar> GenerateTaskbarInfo(bool measureAppList = true)
         {
             List<Types.Taskbar> retVal = new List<Types.Taskbar>();
 
@@ -988,10 +1019,15 @@ namespace RoundedTB
 
             // On recent Windows 11 builds the legacy app list window only covers the
             // first few buttons; the XAML bridge has the real button positions.
-            int uiaAppListRight = GetAppListRightFromUia(hwndBridge);
-            if (uiaAppListRight > 0)
+            // Simple mode and a hidden app segment never use this extent, so skip
+            // the UIA walk entirely until the setting asks for it again.
+            if (measureAppList)
             {
-                rectAppList.Right = uiaAppListRight;
+                int uiaAppListRight = GetAppListRightFromUia(hwndBridge);
+                if (uiaAppListRight > 0)
+                {
+                    rectAppList.Right = uiaAppListRight;
+                }
             }
 
             retVal.Add(new Types.Taskbar
@@ -1052,10 +1088,13 @@ namespace RoundedTB
                     {
                         rectSecTray = secUiaTrayRect;
                     }
-                    int secUiaRight = GetAppListRightFromUia(hwndSecBridge);
-                    if (secUiaRight > 0)
+                    if (measureAppList)
                     {
-                        rectSecAppList.Right = secUiaRight;
+                        int secUiaRight = GetAppListRightFromUia(hwndSecBridge);
+                        if (secUiaRight > 0)
+                        {
+                            rectSecAppList.Right = secUiaRight;
+                        }
                     }
                     retVal.Add(new Types.Taskbar
                     {

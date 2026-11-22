@@ -322,7 +322,7 @@ namespace RoundedTB
             autoHideComboBox.SelectedIndex = activeSettings.AutoHide;
             keepRunningCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             KeepRunningTrayCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
-            List<Types.Taskbar> startupTaskbars = Taskbar.GenerateTaskbarInfo();
+            List<Types.Taskbar> startupTaskbars = Taskbar.GenerateTaskbarInfo(Taskbar.NeedsAppListMeasurement(activeSettings));
             taskbarDetails = startupTaskbars;
             interaction.AddLog($"Startup: exe={Environment.ProcessPath}, taskbars={startupTaskbars.Count}");
 
@@ -555,7 +555,7 @@ namespace RoundedTB
 
             bool expectTray = activeSettings.ShowTray
                 || (activeSettings.ShowSegmentsOnHover && (activeSettings.TrayHoverEnabled ?? true));
-            bool expectAppList = activeSettings.ShowAppList ?? true;
+            bool expectAppList = Taskbar.NeedsAppListMeasurement(activeSettings);
 
             // The constructor has just measured these same windows on the already-ready
             // path. Explorer restarts and retries always take a fresh measurement.
@@ -568,7 +568,7 @@ namespace RoundedTB
                 && TaskbarBoundsReady(startupTaskbars, expectTray, expectAppList, logNotReady: false);
             if (!reuseStartupTaskbars)
             {
-                taskbarDetails = Taskbar.GenerateTaskbarInfo();
+                taskbarDetails = Taskbar.GenerateTaskbarInfo(Taskbar.NeedsAppListMeasurement(activeSettings));
                 if (!TaskbarBoundsReady(taskbarDetails, expectTray, expectAppList, logNotReady: true))
                 {
                     return false;
@@ -834,6 +834,16 @@ namespace RoundedTB
             activeSettings.FillOnTaskSwitch = (bool)fillAltTabCheckBox.IsChecked;
 
             bool showAppList = activeSettings.ShowAppList ?? true;
+            if (Taskbar.NeedsAppListMeasurement(activeSettings))
+            {
+                // The background loop skips this measurement while the app
+                // segment is off, so make the first applied region exact when
+                // the setting turns it back on.
+                foreach (Types.Taskbar taskbar in taskbarDetails)
+                {
+                    Taskbar.MeasureAppList(taskbar);
+                }
+            }
             try
             {
                 foreach (Types.Taskbar taskbar in taskbarDetails)
