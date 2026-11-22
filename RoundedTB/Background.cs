@@ -17,6 +17,7 @@ namespace RoundedTB
         int infrequentCount = 0;
         int periodicRefresh = 0;
         int uiaTrayCount = 0;
+        DateTime lastCollectUtc = DateTime.MinValue;
 
         public Background()
         {
@@ -390,6 +391,18 @@ namespace RoundedTB
                             {
                                 taskbar.Ignored = true;
                             }
+                        }
+
+                        // The UIA measurements create COM wrappers and native
+                        // cache entries. The loop allocates little managed memory,
+                        // so without this the wrappers can sit unreclaimed for a
+                        // long time and their native references keep growing.
+                        // Collect and wait for finalizers once a minute.
+                        if ((DateTime.UtcNow - lastCollectUtc).TotalSeconds >= 60)
+                        {
+                            lastCollectUtc = DateTime.UtcNow;
+                            GC.Collect(2, GCCollectionMode.Forced, true, true);
+                            GC.WaitForPendingFinalizers();
                         }
 
                     System.Threading.Thread.Sleep(100);
