@@ -54,6 +54,7 @@ namespace RoundedTB
         private DispatcherTimer startupCoordinator;
         private int taskbarCreatedMessage;
         private int shellHookMessage;
+        private bool settingsBackdropApplied;
         /// <summary>
         /// Versions:
         /// -1: Canary
@@ -65,8 +66,6 @@ namespace RoundedTB
 
         public MainWindow()
         {
-            WPFUI.Background.Manager.Apply(WPFUI.Background.BackgroundType.Mica, this);
-
             InitializeComponent();
 
             // WPF-UI's TitleBar calls Application.Shutdown() by default when
@@ -79,8 +78,11 @@ namespace RoundedTB
             mainTitleBar.NotifyIconDoubleClick += NotifyIcon_Open;
 
             // Check OS build, as behaviours rather-annoyingly differ between Windows 11 and Windows 10
-            RegistryKey registryKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
-            var buildNumber = registryKey.GetValue("CurrentBuild").ToString();
+            string buildNumber;
+            using (RegistryKey registryKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+            {
+                buildNumber = registryKey.GetValue("CurrentBuild").ToString();
+            }
             if (Convert.ToInt32(buildNumber) >= 21996)
             {
                 isWindows11 = true;
@@ -319,12 +321,13 @@ namespace RoundedTB
             autoHideComboBox.SelectedIndex = activeSettings.AutoHide;
             keepRunningCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             KeepRunningTrayCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
-            taskbarDetails = Taskbar.GenerateTaskbarInfo();
-            interaction.AddLog($"Startup: exe={Environment.ProcessPath}, taskbars={taskbarDetails.Count}");
+            List<Types.Taskbar> startupTaskbars = Taskbar.GenerateTaskbarInfo();
+            taskbarDetails = startupTaskbars;
+            interaction.AddLog($"Startup: exe={Environment.ProcessPath}, taskbars={startupTaskbars.Count}");
 
             ApplyButton_Click(null, null);
 
-            if (!TryApplyTaskbarRegionsIfReady())
+            if (!TryApplyTaskbarRegionsIfReady(startupTaskbars))
             {
                 StartStartupCoordinator();
             }
@@ -354,7 +357,7 @@ namespace RoundedTB
                 aw.ShowDialog();
                 try
                 {
-                    EnsureWindowOnScreen();
+                    PrepareSettingsWindow();
                     Visibility = Visibility.Visible;
                 }
                 catch (InvalidOperationException)
@@ -533,7 +536,7 @@ namespace RoundedTB
             }
         }
 
-        private bool TryApplyTaskbarRegionsIfReady()
+        private bool TryApplyTaskbarRegionsIfReady(List<Types.Taskbar> startupTaskbars = null)
         {
             IntPtr hwndMain = LocalPInvoke.FindWindowExA(IntPtr.Zero, IntPtr.Zero, "Shell_TrayWnd", null);
             if (hwndMain == IntPtr.Zero)
@@ -549,28 +552,24 @@ namespace RoundedTB
                 return false;
             }
 
-            taskbarDetails = Taskbar.GenerateTaskbarInfo();
-
             bool expectTray = activeSettings.ShowTray
                 || (activeSettings.ShowSegmentsOnHover && (activeSettings.TrayHoverEnabled ?? true));
             bool expectAppList = activeSettings.ShowAppList ?? true;
 
-            foreach (Types.Taskbar taskbar in taskbarDetails)
+            // The constructor has just measured these same windows on the already-ready
+            // path. Explorer restarts and retries always take a fresh measurement.
+            bool reuseStartupTaskbars = startupTaskbars != null && ReferenceEquals(taskbarDetails, startupTaskbars)
+                && startupTaskbars.Count > 0
+                && startupTaskbars[0].TaskbarHwnd == hwndMain
+                && startupTaskbars[0].AppListHwnd == hwndAppList
+                && startupTaskbars[0].TrayHwnd == hwndTray
+                && !Taskbar.TaskbarCountOrHandleChanged(startupTaskbars.Count, hwndMain)
+                && TaskbarBoundsReady(startupTaskbars, expectTray, expectAppList, logNotReady: false);
+            if (!reuseStartupTaskbars)
             {
-                if (taskbar.TaskbarHwnd == IntPtr.Zero)
+                taskbarDetails = Taskbar.GenerateTaskbarInfo();
+                if (!TaskbarBoundsReady(taskbarDetails, expectTray, expectAppList, logNotReady: true))
                 {
-                    return false;
-                }
-
-                if (expectTray && (taskbar.TrayHwnd == IntPtr.Zero || taskbar.TrayRect.Left == 0 || taskbar.TrayRect.Right <= taskbar.TrayRect.Left))
-                {
-                    interaction.AddLog($"Startup coordinator: tray not ready (hwnd={taskbar.TrayHwnd}, rect={taskbar.TrayRect.Left}-{taskbar.TrayRect.Right})");
-                    return false;
-                }
-
-                if (expectAppList && (taskbar.AppListHwnd == IntPtr.Zero || taskbar.AppListRect.Right <= taskbar.AppListRect.Left))
-                {
-                    interaction.AddLog($"Startup coordinator: app list not ready (hwnd={taskbar.AppListHwnd}, rect={taskbar.AppListRect.Left}-{taskbar.AppListRect.Right})");
                     return false;
                 }
             }
@@ -583,6 +582,37 @@ namespace RoundedTB
             StartTaskbarWorkerIfNeeded();
             interaction.AddLog("Startup coordinator: taskbar ready, regions applied");
             return true;
+        }
+
+        private bool TaskbarBoundsReady(List<Types.Taskbar> taskbars, bool expectTray, bool expectAppList, bool logNotReady)
+        {
+            foreach (Types.Taskbar taskbar in taskbars)
+            {
+                if (!LocalPInvoke.IsWindow(taskbar.TaskbarHwnd))
+                {
+                    return false;
+                }
+
+                if (expectTray && (taskbar.TrayHwnd == IntPtr.Zero || taskbar.TrayRect.Left == 0 || taskbar.TrayRect.Right <= taskbar.TrayRect.Left))
+                {
+                    if (logNotReady)
+                    {
+                        interaction.AddLog($"Startup coordinator: tray not ready (hwnd={taskbar.TrayHwnd}, rect={taskbar.TrayRect.Left}-{taskbar.TrayRect.Right})");
+                    }
+                    return false;
+                }
+
+                if (expectAppList && (taskbar.AppListHwnd == IntPtr.Zero || taskbar.AppListRect.Right <= taskbar.AppListRect.Left))
+                {
+                    if (logNotReady)
+                    {
+                        interaction.AddLog($"Startup coordinator: app list not ready (hwnd={taskbar.AppListHwnd}, rect={taskbar.AppListRect.Left}-{taskbar.AppListRect.Right})");
+                    }
+                    return false;
+                }
+            }
+
+            return taskbars.Count > 0;
         }
 
         private void ApplyTaskbarRegionsDirect()
@@ -882,8 +912,14 @@ namespace RoundedTB
             Close();
         }
 
-        private void EnsureWindowOnScreen()
+        private void PrepareSettingsWindow()
         {
+            if (!settingsBackdropApplied)
+            {
+                WPFUI.Background.Manager.Apply(WPFUI.Background.BackgroundType.Mica, this);
+                settingsBackdropApplied = true;
+            }
+
             if (Left <= -10000 || Top <= -10000)
             {
                 WindowStartupLocation = WindowStartupLocation.Manual;
@@ -896,7 +932,7 @@ namespace RoundedTB
 
         private void NotifyIcon_Open(object sender, RoutedEventArgs e)
         {
-            EnsureWindowOnScreen();
+            PrepareSettingsWindow();
             if (!IsVisible)
             {
                 Visibility = Visibility.Visible;
@@ -917,7 +953,7 @@ namespace RoundedTB
         {
             if (IsVisible == false)
             {
-                EnsureWindowOnScreen();
+                PrepareSettingsWindow();
                 Visibility = Visibility.Visible;
                 ShowMenuItem.Header = "Hide RoundedTB";
             }

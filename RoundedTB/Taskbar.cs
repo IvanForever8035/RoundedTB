@@ -26,35 +26,17 @@ namespace RoundedTB
         /// </returns>
         public static bool CheckIfCentred()
         {
-            bool retVal;
             try
             {
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"))
                 {
-                    if (key != null)
-                    {
-                        int val = (int)key.GetValue("TaskbarAl");
-
-                        if (val == 1)
-                        {
-                            retVal = true;
-                        }
-                        else
-                        {
-                            retVal = false;
-                        }
-                    }
-                    else
-                    {
-                        retVal = false;
-                    }
+                    return key?.GetValue("TaskbarAl") is int alignment && alignment == 1;
                 }
             }
             catch (Exception)
             {
                 return false;
             }
-            return retVal;
         }
 
         /// <summary>
@@ -112,26 +94,20 @@ namespace RoundedTB
         }
 
         /// <summary>
-        /// Gets the rects of the three components of the taskbar from their respective handles.
+        /// Reads live rectangles into the background worker's reusable snapshot.
         /// </summary>
-        /// <returns>
-        /// a partial Taskbar containing just rects and handles.
-        /// </returns>
-        public static Types.Taskbar GetQuickTaskbarRects(IntPtr taskbarHwnd, IntPtr trayHwnd, IntPtr appListHwnd)
+        public static void ReadQuickTaskbarRects(Types.Taskbar taskbar, Types.Taskbar snapshot)
         {
-            LocalPInvoke.GetWindowRect(taskbarHwnd, out LocalPInvoke.RECT taskbarRectCheck);
-            LocalPInvoke.GetWindowRect(trayHwnd, out LocalPInvoke.RECT trayRectCheck);
-            LocalPInvoke.GetWindowRect(appListHwnd, out LocalPInvoke.RECT appListRectCheck);
+            LocalPInvoke.GetWindowRect(taskbar.TaskbarHwnd, out LocalPInvoke.RECT taskbarRect);
+            LocalPInvoke.GetWindowRect(taskbar.TrayHwnd, out LocalPInvoke.RECT trayRect);
+            LocalPInvoke.GetWindowRect(taskbar.AppListHwnd, out LocalPInvoke.RECT appListRect);
 
-            return new Types.Taskbar()
-            {
-                TaskbarHwnd = taskbarHwnd,
-                TrayHwnd = trayHwnd,
-                AppListHwnd = appListHwnd,
-                TaskbarRect = taskbarRectCheck,
-                TrayRect = trayRectCheck,
-                AppListRect = appListRectCheck
-            };
+            snapshot.TaskbarHwnd = taskbar.TaskbarHwnd;
+            snapshot.TrayHwnd = taskbar.TrayHwnd;
+            snapshot.AppListHwnd = taskbar.AppListHwnd;
+            snapshot.TaskbarRect = taskbarRect;
+            snapshot.TrayRect = trayRect;
+            snapshot.AppListRect = appListRect;
         }
 
         public enum AutoHideState
@@ -797,40 +773,25 @@ namespace RoundedTB
         /// </returns>
         public static bool TaskbarCountOrHandleChanged(int taskbarCount, IntPtr mainTaskbarHandle)
         {
-            List<IntPtr> currentTaskbars = new List<IntPtr>();
-            bool otherTaskbarsExist = true;
-            IntPtr hwndPrevious = IntPtr.Zero;
-            currentTaskbars.Add(LocalPInvoke.FindWindowExA(IntPtr.Zero, hwndPrevious, "Shell_TrayWnd", null));
-
-            if (currentTaskbars[0] == IntPtr.Zero)
+            IntPtr mainTaskbar = LocalPInvoke.FindWindowExA(IntPtr.Zero, IntPtr.Zero, "Shell_TrayWnd", null);
+            if (mainTaskbar == IntPtr.Zero)
             {
                 return false;
             }
 
-            if (currentTaskbars[0] != mainTaskbarHandle)
+            if (mainTaskbar != mainTaskbarHandle)
             {
                 return true;
             }
 
-            while (otherTaskbarsExist)
+            int count = 1;
+            IntPtr secondary = IntPtr.Zero;
+            while ((secondary = LocalPInvoke.FindWindowExA(IntPtr.Zero, secondary, "Shell_SecondaryTrayWnd", null)) != IntPtr.Zero)
             {
-                IntPtr hwndCurrent = LocalPInvoke.FindWindowExA(IntPtr.Zero, hwndPrevious, "Shell_SecondaryTrayWnd", null);
-                hwndPrevious = hwndCurrent;
+                count++;
+            }
 
-                if (hwndCurrent == IntPtr.Zero)
-                {
-                    otherTaskbarsExist = false;
-                }
-                else
-                {
-                    currentTaskbars.Add(hwndCurrent);
-                }
-            }
-            if (currentTaskbars.Count != taskbarCount)
-            {
-                return true;
-            }
-            return false;
+            return count != taskbarCount;
         }
 
         /// <summary>

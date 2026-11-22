@@ -18,7 +18,7 @@ namespace RoundedTB
         int periodicRefresh = 0;
         int uiaTrayCount = 0;
         int appListFallbackCount = 0;
-        volatile bool appListRefreshRequested;
+        int appListRefreshRequested;
 
         public Background()
         {
@@ -31,7 +31,7 @@ namespace RoundedTB
         /// </summary>
         public void RequestAppListRefresh()
         {
-            appListRefreshRequested = true;
+            System.Threading.Interlocked.Exchange(ref appListRefreshRequested, 1);
         }
 
         /// <summary>
@@ -83,6 +83,8 @@ namespace RoundedTB
         {
             mw.interaction.AddLog("in bw");
             BackgroundWorker worker = sender as BackgroundWorker;
+            // Only this worker uses the scratch snapshot, never the shared taskbar list.
+            Types.Taskbar newTaskbar = new Types.Taskbar();
             while (true)
             {
                 try
@@ -99,7 +101,13 @@ namespace RoundedTB
                     {
                         // Section for running less important things without requiring an additional thread
                         infrequentCount++;
-                        if (infrequentCount == 10)
+                        if (infrequentCount == 1)
+                        {
+                            // Alignment is a system setting, not live taskbar geometry.
+                            mw.activeSettings.IsCentred = Taskbar.CheckIfCentred();
+                        }
+
+                        if (infrequentCount >= 10)
                         {
                             // Check to see if settings need to be shown. A second
                             // instance renames its own window to request this one,
@@ -142,19 +150,14 @@ namespace RoundedTB
                                 uiaTrayCount = 0;
                             }
 
-                            // Only walk the XAML tree when a window was created or
-                            // destroyed, with a 10 second fallback. Each measurement
-                            // leaves native UIA cache entries behind, so an
-                            // unconditional per-second query makes memory creep up.
+                            // Coalesce window events without losing a request queued
+                            // while measurements are running. Refresh every bridge.
+                            bool appListRequested = System.Threading.Interlocked.Exchange(ref appListRefreshRequested, 0) != 0;
                             appListFallbackCount++;
-                            bool refreshAppList = appListRefreshRequested || appListFallbackCount >= 10;
+                            bool refreshAppList = appListRequested || appListFallbackCount >= 10;
                             if (refreshAppList)
                             {
-                                appListRefreshRequested = false;
-                                if (appListFallbackCount >= 10)
-                                {
-                                    appListFallbackCount = 0;
-                                }
+                                appListFallbackCount = 0;
                             }
 
                             foreach (Types.Taskbar tb in mw.taskbarDetails)
@@ -206,10 +209,6 @@ namespace RoundedTB
                             infrequentCount = 0;
                         }
 
-                        // Check if the taskbar is centred, and if it is, directly update the settings; using an interim bool to avoid delaying because I'm lazy
-                        bool isCentred = Taskbar.CheckIfCentred();
-                        mw.activeSettings.IsCentred = isCentred;
-
                         // Work with static values to avoid some null reference exceptions
                         List<Types.Taskbar> taskbars = mw.taskbarDetails;
                         List<Types.Taskbar> originalTaskbars = taskbars;
@@ -233,7 +232,7 @@ namespace RoundedTB
                                 break;
                             }
                             // Get the latest quick details of this taskbar
-                            Types.Taskbar newTaskbar = Taskbar.GetQuickTaskbarRects(taskbars[current].TaskbarHwnd, taskbars[current].TrayHwnd, taskbars[current].AppListHwnd);
+                            Taskbar.ReadQuickTaskbarRects(taskbars[current], newTaskbar);
 
                             // Keep the UIA-measured app button right edge instead of the
                             // (possibly much shorter) legacy MSTaskSwWClass rect.
