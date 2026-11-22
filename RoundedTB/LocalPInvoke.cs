@@ -88,6 +88,9 @@ namespace RoundedTB
         public static extern IntPtr FindWindowW(string lpClassName, string lpWindowName);
 
         [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool RegisterShellHookWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool GetCursorPos(out POINT lpPoint);
 

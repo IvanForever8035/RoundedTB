@@ -17,11 +17,21 @@ namespace RoundedTB
         int infrequentCount = 0;
         int periodicRefresh = 0;
         int uiaTrayCount = 0;
-        DateTime lastCollectUtc = DateTime.MinValue;
+        int appListFallbackCount = 0;
+        volatile bool appListRefreshRequested;
 
         public Background()
         {
             mw = (MainWindow)Application.Current.MainWindow;
+        }
+
+        /// <summary>
+        /// Asks the next tick to re-measure the app button extent. Called from
+        /// the shell hook when a window is created or destroyed.
+        /// </summary>
+        public void RequestAppListRefresh()
+        {
+            appListRefreshRequested = true;
         }
 
         /// <summary>
@@ -132,6 +142,21 @@ namespace RoundedTB
                                 uiaTrayCount = 0;
                             }
 
+                            // Only walk the XAML tree when a window was created or
+                            // destroyed, with a 10 second fallback. Each measurement
+                            // leaves native UIA cache entries behind, so an
+                            // unconditional per-second query makes memory creep up.
+                            appListFallbackCount++;
+                            bool refreshAppList = appListRefreshRequested || appListFallbackCount >= 10;
+                            if (refreshAppList)
+                            {
+                                appListRefreshRequested = false;
+                                if (appListFallbackCount >= 10)
+                                {
+                                    appListFallbackCount = 0;
+                                }
+                            }
+
                             foreach (Types.Taskbar tb in mw.taskbarDetails)
                             {
                                 if (tb.BridgeHwnd == IntPtr.Zero)
@@ -141,14 +166,17 @@ namespace RoundedTB
 
                                 try
                                 {
-                                    int uiaRight = (int)mw.Dispatcher.Invoke(
-                                        new Func<int>(() => Taskbar.GetAppListRightFromUia(tb.BridgeHwnd)));
-                                    if (uiaRight > 0 && uiaRight != tb.AppListRect.Right)
+                                    if (refreshAppList)
                                     {
-                                        LocalPInvoke.RECT appListRect = tb.AppListRect;
-                                        appListRect.Right = uiaRight;
-                                        tb.AppListRect = appListRect;
-                                        tb.Ignored = true;
+                                        int uiaRight = (int)mw.Dispatcher.Invoke(
+                                            new Func<int>(() => Taskbar.GetAppListRightFromUia(tb.BridgeHwnd)));
+                                        if (uiaRight > 0 && uiaRight != tb.AppListRect.Right)
+                                        {
+                                            LocalPInvoke.RECT appListRect = tb.AppListRect;
+                                            appListRect.Right = uiaRight;
+                                            tb.AppListRect = appListRect;
+                                            tb.Ignored = true;
+                                        }
                                     }
                                 }
                                 catch (Exception)
@@ -391,18 +419,6 @@ namespace RoundedTB
                             {
                                 taskbar.Ignored = true;
                             }
-                        }
-
-                        // The UIA measurements create COM wrappers and native
-                        // cache entries. The loop allocates little managed memory,
-                        // so without this the wrappers can sit unreclaimed for a
-                        // long time and their native references keep growing.
-                        // Collect and wait for finalizers once a minute.
-                        if ((DateTime.UtcNow - lastCollectUtc).TotalSeconds >= 60)
-                        {
-                            lastCollectUtc = DateTime.UtcNow;
-                            GC.Collect(2, GCCollectionMode.Forced, true, true);
-                            GC.WaitForPendingFinalizers();
                         }
 
                     System.Threading.Thread.Sleep(100);

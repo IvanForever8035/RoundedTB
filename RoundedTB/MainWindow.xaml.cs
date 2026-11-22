@@ -53,6 +53,7 @@ namespace RoundedTB
         public int version = -1;
         private DispatcherTimer startupCoordinator;
         private int taskbarCreatedMessage;
+        private int shellHookMessage;
         /// <summary>
         /// Versions:
         /// -1: Canary
@@ -659,6 +660,8 @@ namespace RoundedTB
             if (taskbarCreatedMessage != 0 && msg == taskbarCreatedMessage)
             {
                 interaction.AddLog("TaskbarCreated message received");
+                // Explorer restarts drop the shell hook registration.
+                LocalPInvoke.RegisterShellHookWindow(hwnd);
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     if (!TryApplyTaskbarRegionsIfReady())
@@ -667,6 +670,23 @@ namespace RoundedTB
                     }
                 }));
                 handled = true;
+            }
+
+            return IntPtr.Zero;
+        }
+
+        private IntPtr ShellHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (shellHookMessage != 0 && msg == shellHookMessage)
+            {
+                // HSHELL_WINDOWCREATED = 1, HSHELL_WINDOWDESTROYED = 2.
+                // The app button extent depends on how many windows are open,
+                // so request a fresh measurement instead of polling UIA.
+                int code = wParam.ToInt32();
+                if (code == 1 || code == 2)
+                {
+                    background?.RequestAppListRefresh();
+                }
             }
 
             return IntPtr.Zero;
@@ -1094,7 +1114,11 @@ namespace RoundedTB
             source = HwndSource.FromHwnd(handle);
             source.AddHook(interaction.HwndHook);
             taskbarCreatedMessage = LocalPInvoke.RegisterWindowMessage("TaskbarCreated");
+            shellHookMessage = LocalPInvoke.RegisterWindowMessage("SHELLHOOK");
+            bool shellHookRegistered = LocalPInvoke.RegisterShellHookWindow(handle);
+            interaction.AddLog($"Shell hook registered: {shellHookRegistered}");
             source.AddHook(TaskbarCreatedHook);
+            source.AddHook(ShellHook);
             source.AddHook(SystemStateHook);
             bool wtf = LocalPInvoke.RegisterHotKey(handle, 9000, 0x8, 0x71);
             bool appListHotkey = LocalPInvoke.RegisterHotKey(handle, 9001, 0x8, 0x72);
