@@ -160,13 +160,13 @@ jobs:
         $lic = Join-Path $pkg 'licenses'
         New-Item -ItemType Directory -Force -Path $lic | Out-Null
         $cache = Join-Path $env:USERPROFILE '.nuget\packages'
-        foreach ($id in @('hardcodet.notifyicon.wpf','wpf-ui','newtonsoft.json')) {
-          $root = Join-Path $cache $id
-          if (-not (Test-Path $root)) { throw "Missing restored package $id" }
+        foreach ($packageId in @('hardcodet.notifyicon.wpf','wpf-ui','newtonsoft.json')) {
+          $root = Join-Path $cache $packageId
+          if (-not (Test-Path $root)) { throw "Missing restored package $packageId" }
           $licenseFiles = @(Get-ChildItem $root -Recurse -Include 'LICENSE','LICENSE.txt','LICENSE.md' -File -ErrorAction SilentlyContinue)
           foreach ($license in $licenseFiles) {
             $version = Split-Path $license.DirectoryName -Leaf
-            $name = "$id-$version-$($license.Name)"
+            $name = "$packageId-$version-$($license.Name)"
             Copy-Item $license.FullName (Join-Path $lic $name) -Force
           }
         }
