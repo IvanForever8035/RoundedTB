@@ -72,6 +72,11 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Remove="LightAssemblyInfo.cs" />
+    <Compile Remove="LightEntryPoint.cs" />
+    <Compile Remove="LightEntryPointSelfTest.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="res\TrayDark.ico" />
     <Resource Include="res\TrayLight.ico" />
   </ItemGroup>
