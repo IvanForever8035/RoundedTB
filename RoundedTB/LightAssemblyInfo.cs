@@ -10,6 +10,6 @@ using System.Windows;
 [assembly: AssemblyCopyright("GPL-3.0")]
 [assembly: ComVisible(false)]
 [assembly: AssemblyVersion("0.1.0.0")]
-[assembly: AssemblyFileVersion("0.1.0.2")]
-[assembly: AssemblyInformationalVersion("0.1.0-preview.2")]
+[assembly: AssemblyFileVersion("0.1.0.3")]
+[assembly: AssemblyInformationalVersion("0.1.0-preview.3")]
 [assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]

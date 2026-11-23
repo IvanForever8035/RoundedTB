@@ -1,4 +1,7 @@
-# RoundedTB Light — experimental single-EXE pre-release
+# RoundedTB Light — experimental single-EXE pre-release 0.1.0-preview.3
+
+Fixes settings-window startup in the single-EXE build by initializing the WPF
+application resources and startup URI before running the settings process.
 
 This pre-release consolidates the lightweight host and settings window into one
 program EXE. By default it runs the Win32 tray host; when the host launches itself

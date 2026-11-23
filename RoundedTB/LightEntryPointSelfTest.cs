@@ -12,7 +12,13 @@ namespace RoundedTB
             Require(LightEntryPoint.IsSettingsMode(new[] { "--settings-only" }), "settings argument selects settings mode");
             Require(LightEntryPoint.IsSettingsMode(new[] { "--SETTINGS-ONLY" }), "settings argument is case-insensitive");
             Require(LightEntryPoint.IsSettingsMode(new[] { "/log", "--settings-only" }), "settings argument can follow other args");
-            return "PASS: unified executable host/settings entrypoint dispatch";
+
+            App settingsApp = new App();
+            settingsApp.InitializeComponent();
+            Require(settingsApp.StartupUri != null, "WPF application resources and StartupUri initialize");
+            Require(settingsApp.Resources.Count > 0, "WPF application resources load");
+
+            return "PASS: unified executable host/settings dispatch and WPF settings initialization";
         }
 
         private static void Require(bool condition, string check)

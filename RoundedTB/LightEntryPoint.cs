@@ -27,6 +27,7 @@ namespace RoundedTB
             {
                 App.SettingsOnly = true;
                 App app = new App();
+                app.InitializeComponent();
                 return app.Run();
             }
 

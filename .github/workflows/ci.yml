@@ -172,22 +172,23 @@ jobs:
         }
         $assetVersion = "${{ github.ref_name }}"
         if ($assetVersion.Contains('/') -or $assetVersion.Contains('\\')) { $assetVersion = "${{ github.sha }}" }
-        $zipPath = Join-Path "${{ github.workspace }}" "RoundedTBHost-light-$assetVersion.zip"
+        $zipName = "RoundedTBHost-$assetVersion.zip"
+        $zipPath = Join-Path "${{ github.workspace }}" $zipName
         Compress-Archive -Path "$pkg\*" -DestinationPath $zipPath -Force
         $hash = (Get-FileHash $zipPath -Algorithm SHA256).Hash
-        Set-Content "$zipPath.sha256" "$hash  $(Split-Path $zipPath -Leaf)" -Encoding ascii
+        Set-Content "$zipPath.sha256" "$hash  $zipName" -Encoding ascii
 
     - name: Upload light package artifact
       uses: actions/upload-artifact@v7
       with:
         name: RoundedTBHost-light
         path: |
-          .\RoundedTBHost-light-*.zip
-          .\RoundedTBHost-light-*.zip.sha256
+          .\RoundedTBHost-*.zip
+          .\RoundedTBHost-*.zip.sha256
 
     - name: Create lightweight host pre-release
       if: ${{ startsWith(github.ref, 'refs/tags/light-v') }}
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip" "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip.sha256" --title "RoundedTB Light ${{ github.ref_name }}" --prerelease --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"
+        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost-${{ github.ref_name }}.zip" "${{ github.workspace }}\RoundedTBHost-${{ github.ref_name }}.zip.sha256" --title "RoundedTB Light experimental single-EXE" --prerelease --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"
