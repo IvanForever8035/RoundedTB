@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Web.Script.Serialization;
+using System.Text.Json;
 
 namespace TrayProbe
 {
@@ -45,8 +45,7 @@ namespace TrayProbe
             if (string.IsNullOrEmpty(json)) return null;
             try
             {
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
-                Dictionary<string, object> root = serializer.DeserializeObject(json) as Dictionary<string, object>;
+                Dictionary<string, object> root = DeserializeRoot(json);
                 if (root == null) return null;
 
                 RuntimeSettings settings = new RuntimeSettings();
@@ -143,11 +142,10 @@ namespace TrayProbe
             error = "";
             try
             {
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
                 Dictionary<string, object> root = null;
                 if (File.Exists(path))
                 {
-                    root = serializer.DeserializeObject(File.ReadAllText(path)) as Dictionary<string, object>;
+                    root = DeserializeRoot(File.ReadAllText(path));
                 }
                 if (root == null) root = new Dictionary<string, object>();
 
@@ -156,7 +154,7 @@ namespace TrayProbe
                 root["ShowWidgets"] = ShowWidgets;
                 root["TrayHoverEnabled"] = TrayHoverEnabled ?? true;
 
-                string json = serializer.Serialize(root);
+                string json = JsonSerializer.Serialize(root);
                 string temporary = path + ".tmp";
                 File.WriteAllText(temporary, json);
                 try
@@ -174,6 +172,52 @@ namespace TrayProbe
             {
                 error = exception.Message;
                 return false;
+            }
+        }
+
+        private static Dictionary<string, object> DeserializeRoot(string json)
+        {
+            using (JsonDocument document = JsonDocument.Parse(json))
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
+                return ConvertObject(document.RootElement) as Dictionary<string, object>;
+            }
+        }
+
+        private static object ConvertObject(JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    Dictionary<string, object> dictionary = new Dictionary<string, object>();
+                    foreach (JsonProperty property in element.EnumerateObject())
+                    {
+                        dictionary[property.Name] = ConvertObject(property.Value);
+                    }
+                    return dictionary;
+                case JsonValueKind.Array:
+                    List<object> list = new List<object>();
+                    foreach (JsonElement item in element.EnumerateArray()) list.Add(ConvertObject(item));
+                    return list;
+                case JsonValueKind.String:
+                    return element.GetString();
+                case JsonValueKind.True:
+                    return true;
+                case JsonValueKind.False:
+                    return false;
+                case JsonValueKind.Number:
+                    int intValue;
+                    if (element.TryGetInt32(out intValue)) return intValue;
+                    long longValue;
+                    if (element.TryGetInt64(out longValue)) return longValue;
+                    decimal decimalValue;
+                    if (element.TryGetDecimal(out decimalValue)) return decimalValue;
+                    return element.GetDouble();
+                case JsonValueKind.Null:
+                case JsonValueKind.Undefined:
+                    return null;
+                default:
+                    return null;
             }
         }
 

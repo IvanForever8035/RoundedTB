@@ -1,60 +1,47 @@
-# RoundedTB Light (lightweight host)
+# RoundedTB Light — experimental pre-release
 
-An **experimental** lightweight Windows taskbar host for RoundedTB. It runs a
-small .NET Framework tray process that applies rounded-corner / segment regions
-to the Windows 11 taskbar, plus a settings window (`RoundedTB.exe`) that is
-started only when needed and exits when closed.
-
-This is a pre-release. See **Known limitations** before relying on it.
+This package contains **one program EXE**: `RoundedTBHost.exe`. The same file
+runs the lightweight Win32 tray host by default and opens the WPF settings UI
+when relaunched with `--settings-only`. Host and settings remain separate
+processes; closing the settings window does not stop the host.
 
 ## Requirements
 
 - Windows 11.
-- .NET Framework 4.8 (included with Windows 11) for the host.
-- The settings window (`RoundedTB.exe`) is framework-dependent and needs the
-  **.NET 6 or newer Windows Desktop Runtime** (it uses major roll-forward).
+- **.NET 9 Windows Desktop Runtime (x64)** must already be installed. This is a
+  framework-dependent build; it does not install the runtime. .NET 9 reached end
+  of support on 2026-11-10, so this pre-release uses an unsupported runtime and
+  is for evaluation only.
+
+## Verified scope
+
+Single monitor, bottom taskbar:
+- Bottom-edge hover reveal (no resting peek strip) and retract.
+- Tray-menu toggles (Tray hover / App segment), saved to config.
+- Settings UI opens from the same EXE; Apply writes `%LOCALAPPDATA%\rtb.json`
+  and the host reloads it.
+- Closing the settings UI exits its child process while the host remains running.
+- Normal host exit restores the taskbar.
+
+## Not yet verified
+
+- Multiple monitors and mixed DPI.
+- Top / left / right docked taskbars.
+- Maximise / Alt+Tab taskbar fill.
+- TranslucentTB compatibility.
+- Explorer restart handling.
+- Recovery after force-killing the host (use tray → Exit for a clean restore).
 
 ## Run
 
-1. Extract the zip to a folder of your choice (portable; no installer).
-2. Run `RoundedTBHost.exe`.
-3. Use the tray icon (right-click) for:
-   - **Tray hover** / **App segment** – toggle segments (saved to config).
-   - **Settings...** – open the settings window; Apply writes the config and the
-     host reloads it. Closing the settings window exits it.
-   - **Start with Windows** – toggle the per-user startup entry (off by default).
-   - **Exit** – stop the host and restore the taskbar.
-
-Configuration: `%LOCALAPPDATA%\rtb.json` (shared with the WPF build).
-Log: `probe.log` in this folder.
-
-Only one host instance runs at a time; launching it again opens the running
-instance's settings window.
-
-## Known limitations (pre-release)
-
-Verified on a single monitor with a bottom taskbar: bottom-edge hover reveal,
-tray-menu toggles, settings apply/reload, and normal-exit restore.
-
-Not yet verified / not supported:
-- Multiple monitors and mixed DPI.
-- Taskbars docked on the top or sides.
-- Maximise / Alt+Tab taskbar fill behaviour.
-- TranslucentTB compatibility.
-- Explorer restart handling.
-- Recovery after the host is force-killed (normal Exit restores the taskbar).
+Extract the package and run `RoundedTBHost.exe`. Use the tray icon's **Settings...**
+item to open the settings child process. The settings and host share
+`%LOCALAPPDATA%\rtb.json`; logs are written to `probe.log` beside the EXE.
 
 ## Uninstall / rollback
 
-- Exit the host from the tray menu (this restores the taskbar).
-- Turn off **Start with Windows** before deleting the folder.
-- Delete the folder to remove it. `%LOCALAPPDATA%\rtb.json` is left in place.
-
-## Troubleshooting
-
-If the taskbar does not respond, press `Ctrl+Shift+Esc` to open Task Manager,
-end `RoundedTBHost.exe`, and run the host again. No permanent system changes are
-made beyond the optional per-user startup entry.
+Exit the host from the tray menu first, then turn off **Start with Windows** if
+enabled, and delete the folder. The settings/config file is not removed.
 
 ## License
 

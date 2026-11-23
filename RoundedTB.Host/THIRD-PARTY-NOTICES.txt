@@ -5,8 +5,8 @@ This package redistributes the RoundedTB fork (GPL-3.0; see LICENSE) together
 with the following third-party components. License identifiers were taken from
 each NuGet package's metadata.
 
-Settings window (RoundedTB.exe) and its dependencies
-----------------------------------------------------
+Settings UI and its dependencies
+---------------------------------
 - WPF-UI 1.2.1                — MIT      — https://github.com/lepoco/wpfui
 - Hardcodet.NotifyIcon.Wpf 1.1.0 — CPOL 1.02 — https://github.com/hardcodet/wpf-notifyicon
 - Newtonsoft.Json 13.0.1      — MIT      — https://www.newtonsoft.com/json
@@ -21,8 +21,8 @@ Settings window (RoundedTB.exe) and its dependencies
 
 .NET runtime assemblies
 -----------------------
-The `System.*` / `Microsoft.*` assemblies bundled with the framework-dependent
-settings window are Microsoft .NET components distributed under the MIT license.
+The .NET 9 Windows Desktop Runtime is framework-dependent and must be installed
+separately. Its Microsoft license terms apply to the installed runtime.
 
 License texts
 -------------

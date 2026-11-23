@@ -1,3 +1,4 @@
 # Build output and logs for the lightweight host
 /out/
+/publish/
 *.log

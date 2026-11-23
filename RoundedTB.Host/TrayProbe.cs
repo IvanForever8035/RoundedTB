@@ -41,7 +41,6 @@ namespace TrayProbe
         private const uint NIM_DELETE = 2;
         private const int IDI_APPLICATION = 32512;
         private const uint IMAGE_ICON = 1;
-        private const uint LR_LOADFROMFILE = 0x0010;
         private const uint LR_DEFAULTSIZE = 0x0040;
         private const uint WS_EX_TOOLWINDOW = 0x80;
         private const uint WS_EX_NOACTIVATE = 0x08000000;
@@ -91,7 +90,7 @@ namespace TrayProbe
         }
 
         [STAThread]
-        private static int Main(string[] args)
+        internal static int Run(string[] args)
         {
             bool testAutoHide = HasArg(args, "/autohide-self-test");
             bool testDynamicRegion = HasArg(args, "/dynamic-region-self-test");
@@ -103,6 +102,7 @@ namespace TrayProbe
                 || HasArg(args, "/hover-self-test")
                 || HasArg(args, "/settings-self-test")
                 || HasArg(args, "/rebind-self-test")
+                || HasArg(args, "/entrypoint-self-test")
                 || testRegion;
             bool settingsTakeover = HasArg(args, "/settings") || !explicitTest;
             takeoverMode = HasArg(args, "/takeover") || dynamicTakeover || settingsTakeover;
@@ -110,27 +110,7 @@ namespace TrayProbe
             useUia = HasArg(args, "/uia");
             useLog = HasArg(args, "/log");
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            settingsExePath = GetArgValue(args, "/settings-exe:");
-            if (string.IsNullOrEmpty(settingsExePath))
-            {
-                string beside = Path.Combine(baseDir, "RoundedTB.exe");
-                if (File.Exists(beside)) settingsExePath = beside;
-            }
-            if (string.IsNullOrEmpty(settingsExePath))
-            {
-                string settingsFile = Path.Combine(baseDir, "settings-exe.txt");
-                if (File.Exists(settingsFile))
-                {
-                    try
-                    {
-                        string line = File.ReadAllLines(settingsFile)[0].Trim();
-                        if (line.Length > 0 && File.Exists(line)) settingsExePath = line;
-                    }
-                    catch (Exception)
-                    {
-                    }
-                }
-            }
+            settingsExePath = Process.GetCurrentProcess().MainModule.FileName;
             if (useLog) Log(baseDir, "started uia=" + useUia);
             if (HasArg(args, "/dynamic-self-test"))
             {
@@ -208,6 +188,19 @@ namespace TrayProbe
                 {
                     Log(baseDir, "FAIL: " + error.Message);
                     return 11;
+                }
+            }
+            if (HasArg(args, "/entrypoint-self-test"))
+            {
+                try
+                {
+                    Log(baseDir, RoundedTB.LightEntryPointSelfTest.Run());
+                    return 0;
+                }
+                catch (Exception error)
+                {
+                    Log(baseDir, "FAIL: " + error.Message);
+                    return 12;
                 }
             }
             if (testAutoHide || takeoverMode) SetProcessDpiAwarenessContext(new IntPtr(-4)); // Per-monitor DPI awareness v2.
@@ -411,16 +404,13 @@ namespace TrayProbe
                 Log(baseDir, "RAWINPUT=" + raw);
             }
 
-            string iconPath = Path.Combine(baseDir, "tray.ico");
-            if (File.Exists(iconPath))
-            {
-                trayIcon = LoadImage(IntPtr.Zero, iconPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
-                trayIconOwned = trayIcon != IntPtr.Zero;
-            }
+            // Load the executable's embedded application icon (resource ID 1);
+            // a separate tray.ico file is not needed in the single-EXE package.
+            trayIcon = LoadImage(instance, new IntPtr(1), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
+            trayIconOwned = trayIcon != IntPtr.Zero;
             if (trayIcon == IntPtr.Zero)
             {
-                // The executable's embedded icon remains available if the file is missing.
-                trayIcon = LoadIcon(instance, (IntPtr)32512);
+                trayIcon = LoadIcon(instance, new IntPtr(1));
             }
             if (trayIcon == IntPtr.Zero)
             {
@@ -1485,8 +1475,8 @@ namespace TrayProbe
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern IntPtr LoadIcon(IntPtr instance, IntPtr name);
 
-        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-        private static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int width, int height, uint flags);
+        [DllImport("user32.dll", EntryPoint = "LoadImageW", CharSet = CharSet.Unicode)]
+        private static extern IntPtr LoadImage(IntPtr instance, IntPtr name, uint type, int width, int height, uint flags);
 
         [DllImport("user32.dll")]
         private static extern bool DestroyIcon(IntPtr icon);

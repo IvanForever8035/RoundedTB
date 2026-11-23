@@ -123,7 +123,7 @@ jobs:
   light:
     name: light-host-prerelease
     runs-on: windows-2022
-    if: ${{ startsWith(github.ref, 'refs/tags/light-v') || github.event_name == 'workflow_dispatch' }}
+    if: ${{ startsWith(github.ref, 'refs/tags/light-v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'branch') }}
 
     steps:
     - name: Checkout
@@ -132,56 +132,47 @@ jobs:
     - name: Set up .NET SDK
       uses: actions/setup-dotnet@v6
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '9.0.x'
 
     - name: Set up MSBuild
       uses: microsoft/setup-msbuild@v3
 
-    - name: NuGet Restore
-      run: |
-        cd ${{ github.workspace }}
-        nuget restore RoundedTB.sln
-
-    - name: Publish settings window (framework-dependent)
-      run: |
-        cd ${{ github.workspace }}
-        msbuild RoundedTB\RoundedTB.csproj -restore -property:Configuration=Release -property:RuntimeIdentifier=win-x64 -property:SelfContained=false -property:PublishDir=${{ github.workspace }}/dist/light-settings/ -t:Publish
-
-    - name: Build lightweight host (and run self-tests)
+    - name: Publish unified single-EXE app (and run self-tests)
       shell: pwsh
       run: |
-        & "${{ github.workspace }}\RoundedTB.Host\build-host.ps1" -OutputDir "${{ github.workspace }}\dist\light-host" -RunSelfTests
+        & "${{ github.workspace }}\RoundedTB.Host\build-host.ps1" -OutputDir "${{ github.workspace }}\dist\light-publish" -RunSelfTests
 
-    - name: Assemble portable package
+    - name: Assemble and verify single-EXE package
       shell: pwsh
       run: |
         $ErrorActionPreference = 'Stop'
         $pkg = "${{ github.workspace }}\dist\light-package"
         New-Item -ItemType Directory -Force -Path $pkg | Out-Null
-        Copy-Item "${{ github.workspace }}\dist\light-settings\*" $pkg -Recurse -Force
-        Copy-Item "${{ github.workspace }}\dist\light-host\RoundedTBHost.exe" $pkg -Force
-        Copy-Item "${{ github.workspace }}\dist\light-host\tray.ico" $pkg -Force
+        Copy-Item "${{ github.workspace }}\dist\light-publish\RoundedTBHost.exe" $pkg -Force
         Copy-Item "${{ github.workspace }}\LICENSE" $pkg -Force
         Copy-Item "${{ github.workspace }}\RoundedTB.Host\README.md" $pkg -Force
         Copy-Item "${{ github.workspace }}\RoundedTB.Host\THIRD-PARTY-NOTICES.txt" $pkg -Force
         Copy-Item "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md" $pkg -Force
-        Get-ChildItem $pkg -Recurse -Include *.pdb,*.xml,probe.log -File -ErrorAction SilentlyContinue |
-          Remove-Item -Force -ErrorAction SilentlyContinue
-        Get-ChildItem $pkg -Directory -Recurse -ErrorAction SilentlyContinue |
-          Where-Object { $_.Name -match '^[a-z]{2}(-[A-Za-z]{2,4})?$' -and $_.Name -ne 'en' } |
-          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        $exeCount = @(Get-ChildItem $pkg -Filter '*.exe' -File).Count
+        if ($exeCount -ne 1) { throw "Expected one program EXE in package; found $exeCount" }
+        $unexpected = @(Get-ChildItem $pkg -File | Where-Object { $_.Extension -in @('.dll', '.pdb', '.json', '.log') })
+        if ($unexpected.Count -gt 0) { throw "Unexpected sidecar files: $($unexpected.Name -join ', ')" }
         $lic = Join-Path $pkg 'licenses'
         New-Item -ItemType Directory -Force -Path $lic | Out-Null
         $cache = Join-Path $env:USERPROFILE '.nuget\packages'
-        if (Test-Path $cache) {
-          Get-ChildItem $cache -Recurse -Include 'LICENSE','LICENSE.txt','LICENSE.md' -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match '\\(hardcodet\.notifyicon\.wpf|wpf-ui|newtonsoft\.json)\\' } |
-            ForEach-Object {
-              $name = $_.Directory.Parent.Name + '-' + $_.Name
-              Copy-Item $_.FullName (Join-Path $lic $name) -Force -ErrorAction SilentlyContinue
-            }
+        foreach ($id in @('hardcodet.notifyicon.wpf','wpf-ui','newtonsoft.json')) {
+          $root = Join-Path $cache $id
+          if (-not (Test-Path $root)) { throw "Missing restored package $id" }
+          $licenseFiles = @(Get-ChildItem $root -Recurse -Include 'LICENSE','LICENSE.txt','LICENSE.md' -File -ErrorAction SilentlyContinue)
+          foreach ($license in $licenseFiles) {
+            $version = Split-Path $license.DirectoryName -Leaf
+            $name = "$id-$version-$($license.Name)"
+            Copy-Item $license.FullName (Join-Path $lic $name) -Force
+          }
         }
         Compress-Archive -Path "$pkg\*" -DestinationPath "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip" -Force
+        $hash = (Get-FileHash "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip" -Algorithm SHA256).Hash
+        Set-Content "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip.sha256" "$hash  RoundedTBHost-light-${{ github.ref_name }}.zip" -Encoding ascii
 
     - name: Upload light package artifact
       uses: actions/upload-artifact@v7
@@ -189,10 +180,11 @@ jobs:
         name: RoundedTBHost-light
         path: |
           .\RoundedTBHost-light-*.zip
+          .\RoundedTBHost-light-*.zip.sha256
 
     - name: Create lightweight host pre-release
       if: ${{ startsWith(github.ref, 'refs/tags/light-v') }}
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip" --title "RoundedTB Light ${{ github.ref_name }}" --prerelease --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"
+        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip" "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip.sha256" --title "RoundedTB Light ${{ github.ref_name }}" --prerelease --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"

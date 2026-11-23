@@ -1,64 +1,42 @@
 <#
 .SYNOPSIS
-  Reproducible build for the lightweight RoundedTB taskbar host.
-
-.DESCRIPTION
-  Compiles every .cs file in this directory with the Windows .NET Framework
-  C# compiler (csc.exe) into RoundedTBHost.exe, then copies tray.ico beside it.
-  The same script runs locally and in CI, so the artifact is identical.
+  Publish the unified RoundedTB Light app as one framework-dependent EXE.
 
 .PARAMETER OutputDir
-  Directory for RoundedTBHost.exe. Defaults to ./out.
+  Publish staging directory (default: ./publish).
 
 .PARAMETER RunSelfTests
-  After building, run the host's headless self-tests (pure logic + self-owned
-  HWND region checks). Any failure throws.
+  Invoke the published single-file EXE with all nine safe self-test switches.
 #>
 param(
-    [string]$OutputDir = (Join-Path $PSScriptRoot 'out'),
+    [string]$OutputDir = (Join-Path $PSScriptRoot 'publish'),
     [switch]$RunSelfTests
 )
 
 $ErrorActionPreference = 'Stop'
-
-function Find-FrameworkDir {
-    $candidates = @(
-        (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'),
-        (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319')
-    )
-    foreach ($dir in $candidates) {
-        if (Test-Path (Join-Path $dir 'csc.exe')) { return $dir }
-    }
-    throw 'Could not find the .NET Framework C# compiler (csc.exe).'
-}
-
-$framework = Find-FrameworkDir
-$csc = Join-Path $framework 'csc.exe'
-$wpf = Join-Path $framework 'WPF'
-
-$sources = @(Get-ChildItem -Path $PSScriptRoot -Filter '*.cs' -File | ForEach-Object { $_.FullName })
-if ($sources.Count -eq 0) { throw 'No .cs sources found next to build-host.ps1.' }
+$project = Join-Path $PSScriptRoot '..\RoundedTB\RoundedTB.Light.csproj'
+$msbuildCommand = Get-Command msbuild.exe -ErrorAction Stop
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+$publishDir = (Resolve-Path $OutputDir).Path + '\'
+
+& $msbuildCommand.Source $project -restore `
+    '-property:Configuration=Release' `
+    '-property:RuntimeIdentifier=win-x64' `
+    '-property:SelfContained=false' `
+    '-property:PublishSingleFile=true' `
+    "-property:PublishDir=$publishDir" `
+    '-property:DebugType=None' `
+    '-property:DebugSymbols=false' `
+    '-property:IncludeNativeLibrariesForSelfExtract=true' `
+    '-target:Publish'
+if ($LASTEXITCODE -ne 0) { throw "MSBuild publish failed with exit code $LASTEXITCODE" }
+
 $exe = Join-Path $OutputDir 'RoundedTBHost.exe'
-$icon = Join-Path $PSScriptRoot 'tray.ico'
+if (-not (Test-Path $exe)) { throw 'Published RoundedTBHost.exe was not produced.' }
 
-$cscArgs = @(
-    '/nologo',
-    '/target:winexe',
-    '/platform:anycpu',
-    "/out:$exe",
-    "/win32icon:$icon",
-    '/reference:System.Web.Extensions.dll',
-    "/reference:$wpf\UIAutomationClient.dll",
-    "/reference:$wpf\UIAutomationTypes.dll",
-    "/reference:$wpf\WindowsBase.dll"
-) + $sources
-
-& $csc @cscArgs
-if ($LASTEXITCODE -ne 0) { throw "csc failed with exit code $LASTEXITCODE" }
-
-Copy-Item -LiteralPath $icon -Destination $OutputDir -Force
+$otherExecutables = @(Get-ChildItem -Path $OutputDir -Filter '*.exe' -File | Where-Object { $_.FullName -ne $exe })
+if ($otherExecutables.Count -gt 0) { throw "Unexpected additional executable(s): $($otherExecutables.Name -join ', ')" }
 
 if ($RunSelfTests) {
     $tests = @(
@@ -70,7 +48,8 @@ if ($RunSelfTests) {
         '/dynamic-region-self-test',
         '/autohide-self-test',
         '/taskbar-model-self-test',
-        '/autohide-policy-self-test'
+        '/autohide-policy-self-test',
+        '/entrypoint-self-test'
     )
     foreach ($test in $tests) {
         & $exe $test
@@ -78,4 +57,4 @@ if ($RunSelfTests) {
     }
 }
 
-Write-Host "Built $exe"
+Write-Host "Published one EXE: $exe"

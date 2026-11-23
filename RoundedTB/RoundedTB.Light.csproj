@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>RoundedTBHost</AssemblyName>
+    <RootNamespace>RoundedTB</RootNamespace>
+    <StartupObject>RoundedTB.LightEntryPoint</StartupObject>
+    <ApplicationIcon>..\RoundedTB.Host\tray.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Platforms>AnyCPU</Platforms>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Deterministic>true</Deterministic>
+    <Version>0.1.0-preview.2</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.2</FileVersion>
+    <Product>RoundedTB Light</Product>
+    <AssemblyTitle>RoundedTB Light (experimental)</AssemblyTitle>
+    <Description>Experimental single-executable RoundedTB host and settings UI.</Description>
+    <Company>RoundedTB fork</Company>
+    <Copyright>GPL-3.0</Copyright>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationTypes" />
+    <Compile Include="..\RoundedTB.Host\*.cs" Link="Host\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0" />
+    <PackageReference Include="WPF-UI" Version="1.2.1" />
+    <PackageReference Include="Microsoft.Windows.Compatibility" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="RoundedTB.ico" />
+    <Resource Include="res\TrayDark.ico" />
+    <Resource Include="res\TrayLight.ico" />
+    <Resource Include="RoundedTBCanary.ico" />
+    <Resource Include="RoundedTBDev.ico" />
+    <Resource Include="res\HeadBanner.png" />
+    <Resource Include="res\HeadBannerCan.png" />
+    <Resource Include="res\HeadBannerDev.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <COMReference Include="IWshRuntimeLibrary">
+      <Guid>{F935DC20-1CF0-11D0-ADB9-00C04FD58A0B}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+  </ItemGroup>
+</Project>
