@@ -1,0 +1,58 @@
+name: attach-licenses
+
+# One-off maintenance: attach LICENSE and THIRD-PARTY-NOTICES.txt to existing
+# releases without rebuilding or replacing their binary assets.
+#
+# Trigger with a tag push:
+#   license-attach-v1.0.6   -> attach to v1.0.6
+#   license-attach-all      -> attach to v1.0.1 .. v1.0.6
+#
+# Also runnable via workflow_dispatch with a space-separated tag list.
+
+on:
+  push:
+    tags:
+      - 'license-attach-*'
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Space-separated release tags'
+        required: true
+        default: 'v1.0.6'
+
+permissions:
+  contents: write
+
+jobs:
+  attach:
+    name: attach-licenses
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Attach license and notices
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          TARGET_TAGS="${{ github.event.inputs.tags }}"
+        else
+          TAG="${GITHUB_REF_NAME}"
+          SUFFIX="${TAG#license-attach-}"
+          if [ "$SUFFIX" = "all" ] || [ "$SUFFIX" = "all-v1.0" ]; then
+            TARGET_TAGS="v1.0.1 v1.0.2 v1.0.3 v1.0.4 v1.0.5 v1.0.6"
+          else
+            TARGET_TAGS="$SUFFIX"
+          fi
+        fi
+        echo "Target tags: $TARGET_TAGS"
+        for tag in $TARGET_TAGS; do
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Uploading LICENSE and THIRD-PARTY-NOTICES.txt to $tag"
+            gh release upload "$tag" LICENSE THIRD-PARTY-NOTICES.txt --clobber
+          else
+            echo "No release for $tag; skipping"
+          fi
+        done
