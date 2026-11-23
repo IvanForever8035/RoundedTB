@@ -170,9 +170,12 @@ jobs:
             Copy-Item $license.FullName (Join-Path $lic $name) -Force
           }
         }
-        Compress-Archive -Path "$pkg\*" -DestinationPath "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip" -Force
-        $hash = (Get-FileHash "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip" -Algorithm SHA256).Hash
-        Set-Content "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip.sha256" "$hash  RoundedTBHost-light-${{ github.ref_name }}.zip" -Encoding ascii
+        $assetVersion = "${{ github.ref_name }}"
+        if ($assetVersion.Contains('/') -or $assetVersion.Contains('\\')) { $assetVersion = "${{ github.sha }}" }
+        $zipPath = Join-Path "${{ github.workspace }}" "RoundedTBHost-light-$assetVersion.zip"
+        Compress-Archive -Path "$pkg\*" -DestinationPath $zipPath -Force
+        $hash = (Get-FileHash $zipPath -Algorithm SHA256).Hash
+        Set-Content "$zipPath.sha256" "$hash  $(Split-Path $zipPath -Leaf)" -Encoding ascii
 
     - name: Upload light package artifact
       uses: actions/upload-artifact@v7
