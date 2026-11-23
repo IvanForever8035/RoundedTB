@@ -77,6 +77,10 @@ namespace RoundedTB
             // Left click or double click on the tray icon opens the settings window.
             mainTitleBar.NotifyIconClick += NotifyIcon_Open;
             mainTitleBar.NotifyIconDoubleClick += NotifyIcon_Open;
+            if (App.SettingsOnly)
+            {
+                mainTitleBar.UseNotifyIcon = false;
+            }
 
             // Check OS build, as behaviours rather-annoyingly differ between Windows 11 and Windows 10
             string buildNumber;
@@ -97,13 +101,16 @@ namespace RoundedTB
             }
 
             // Initialise functions
-            background = new Background();
+            if (!App.SettingsOnly)
+            {
+                background = new Background();
+            }
             interaction = new Interaction();
 
             // Check if RoundedTB is already running, and if it is, do nothing.
-            Process[] matchingProcesses = Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName);
-            
-            if (matchingProcesses.Length > 1)
+            Process[] matchingProcesses = App.SettingsOnly ? null : Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName);
+
+            if (!App.SettingsOnly && matchingProcesses.Length > 1)
             {
                 List<IntPtr> windowList = Interaction.GetTopLevelWindows();
                 foreach (IntPtr hwnd in windowList)
@@ -128,32 +135,35 @@ namespace RoundedTB
                 return;
             }
 
-            string startupLink = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk");
-            if (System.IO.File.Exists(startupLink))
+            if (!App.SettingsOnly)
             {
-                StartupCheckBox.IsChecked = true;
-                ShowMenuItem.Header = "Show RoundedTB";
-
-                // Older builds wrote Environment.GetCommandLineArgs()[0] into the
-                // shortcut, which is RoundedTB.dll for a .NET app. Repair stale links.
-                try
+                string startupLink = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk");
+                if (System.IO.File.Exists(startupLink))
                 {
-                    WshShell shellClass = new WshShell();
-                    IWshShortcut existingShortcut = (IWshShortcut)shellClass.CreateShortcut(startupLink);
-                    string exePath = GetExecutablePath();
-                    if (!string.IsNullOrEmpty(exePath) &&
-                        !string.Equals(existingShortcut.TargetPath, exePath, StringComparison.OrdinalIgnoreCase))
+                    StartupCheckBox.IsChecked = true;
+                    ShowMenuItem.Header = "Show RoundedTB";
+
+                    // Older builds wrote Environment.GetCommandLineArgs()[0] into the
+                    // shortcut, which is RoundedTB.dll for a .NET app. Repair stale links.
+                    try
                     {
-                        EnableStartup();
+                        WshShell shellClass = new WshShell();
+                        IWshShortcut existingShortcut = (IWshShortcut)shellClass.CreateShortcut(startupLink);
+                        string exePath = GetExecutablePath();
+                        if (!string.IsNullOrEmpty(exePath) &&
+                            !string.Equals(existingShortcut.TargetPath, exePath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            EnableStartup();
+                        }
+                    }
+                    catch (Exception)
+                    {
                     }
                 }
-                catch (Exception)
-                {
-                }
+                taskbarThread.WorkerSupportsCancellation = true;
+                taskbarThread.WorkerReportsProgress = true;
+                taskbarThread.DoWork +=background.DoWork;
             }
-            taskbarThread.WorkerSupportsCancellation = true;
-            taskbarThread.WorkerReportsProgress = true;
-            taskbarThread.DoWork +=background.DoWork;
 
             // Load settings into memory/UI
             interaction.FileSystem();
@@ -322,15 +332,28 @@ namespace RoundedTB
             autoHideComboBox.SelectedIndex = activeSettings.AutoHide;
             keepRunningCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
             KeepRunningTrayCheckBox.IsChecked = activeSettings.KeepInBackground ?? true;
-            List<Types.Taskbar> startupTaskbars = Taskbar.GenerateTaskbarInfo(activeSettings);
-            taskbarDetails = startupTaskbars;
-            interaction.AddLog($"Startup: exe={Environment.ProcessPath}, taskbars={startupTaskbars.Count}");
-
-            ApplyButton_Click(null, null);
-
-            if (!TryApplyTaskbarRegionsIfReady(startupTaskbars))
+            List<Types.Taskbar> startupTaskbars;
+            if (App.SettingsOnly)
             {
-                StartStartupCoordinator();
+                // Read-only editor mode: never touch the live taskbar.
+                startupTaskbars = new List<Types.Taskbar>();
+                taskbarDetails = startupTaskbars;
+            }
+            else
+            {
+                startupTaskbars = Taskbar.GenerateTaskbarInfo(activeSettings);
+                taskbarDetails = startupTaskbars;
+                interaction.AddLog($"Startup: exe={Environment.ProcessPath}, taskbars={startupTaskbars.Count}");
+            }
+
+            if (!App.SettingsOnly)
+            {
+                ApplyButton_Click(null, null);
+
+                if (!TryApplyTaskbarRegionsIfReady(startupTaskbars))
+                {
+                    StartStartupCoordinator();
+                }
             }
 
 
@@ -350,7 +373,7 @@ namespace RoundedTB
                 splitHelpButton.Visibility = Visibility.Hidden;
             }
 
-            if (activeSettings.IsNotFirstLaunch != true)
+            if (!App.SettingsOnly && activeSettings.IsNotFirstLaunch != true)
             {
                 activeSettings.IsNotFirstLaunch = true;
                 AboutWindow aw = new AboutWindow();
@@ -368,7 +391,10 @@ namespace RoundedTB
                 ShowMenuItem.Header = "Hide RoundedTB";
             }
 
-            AutoHide(true, taskbarDetails);
+            if (!App.SettingsOnly)
+            {
+                AutoHide(true, taskbarDetails);
+            }
 
             UpdateUi();
 
@@ -834,6 +860,15 @@ namespace RoundedTB
             activeSettings.FillOnMaximise = (bool)fillMaximisedCheckBox.IsChecked;
             activeSettings.FillOnTaskSwitch = (bool)fillAltTabCheckBox.IsChecked;
 
+            if (App.SettingsOnly)
+            {
+                // The lightweight resident host owns the taskbar. This process
+                // only edits the settings file; the host watches it and reloads.
+                interaction.WriteJSON();
+                UpdateUi();
+                return;
+            }
+
             bool showAppList = activeSettings.ShowAppList ?? true;
             bool refreshAppList = !neededAppList && Taskbar.NeedsAppListMeasurement(activeSettings);
             bool refreshTray = !wasDynamic && activeSettings.IsDynamic;
@@ -902,6 +937,11 @@ namespace RoundedTB
         protected override void OnClosing(CancelEventArgs e)
         {
             base.OnClosing(e);
+
+            if (App.SettingsOnly)
+            {
+                return;
+            }
 
             if (shouldReallyDieNoReally == false && (activeSettings.KeepInBackground ?? true))
             {
@@ -1190,6 +1230,14 @@ namespace RoundedTB
             Debug.WriteLine("AAAAA");
             base.OnSourceInitialized(e);
 
+            if (App.SettingsOnly)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                EnsureWindowOnScreen();
+                Visibility = Visibility.Visible;
+                Opacity = 1;
+                return;
+            }
 
             IntPtr handle = new WindowInteropHelper(this).Handle;
             source = HwndSource.FromHwnd(handle);
