@@ -1,7 +1,8 @@
-# RoundedTB Light — experimental single-EXE pre-release 0.1.0-preview.3
+# RoundedTB Light — experimental single-EXE pre-release 0.1.0-preview.4
 
-Fixes settings-window startup in the single-EXE build by initializing the WPF
-application resources and startup URI before running the settings process.
+Minimal package: the zip now contains only `RoundedTBHost.exe` plus the required
+`LICENSE` and `THIRD-PARTY-NOTICES.txt`. Usage and the runtime requirement are
+described on this release page instead of bundled README/release-notes files.
 
 This pre-release consolidates the lightweight host and settings window into one
 program EXE. By default it runs the Win32 tray host; when the host launches itself
