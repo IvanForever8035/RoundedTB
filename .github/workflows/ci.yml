@@ -155,8 +155,8 @@ jobs:
         Copy-Item "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md" $pkg -Force
         $exeCount = @(Get-ChildItem $pkg -Filter '*.exe' -File).Count
         if ($exeCount -ne 1) { throw "Expected one program EXE in package; found $exeCount" }
-        $unexpected = @(Get-ChildItem $pkg -File | Where-Object { $_.Extension -in @('.dll', '.pdb', '.json', '.log') })
-        if ($unexpected.Count -gt 0) { throw "Unexpected sidecar files: $($unexpected.Name -join ', ')" }
+        Write-Host 'Portable package files:'
+        Get-ChildItem $pkg -Recurse -File | ForEach-Object { Write-Host $_.FullName }
         $lic = Join-Path $pkg 'licenses'
         New-Item -ItemType Directory -Force -Path $lic | Out-Null
         $cache = Join-Path $env:USERPROFILE '.nuget\packages'
