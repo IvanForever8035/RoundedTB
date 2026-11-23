@@ -1,0 +1,33 @@
+RoundedTB Light — Third-party notices
+=====================================
+
+This package redistributes the RoundedTB fork (GPL-3.0; see LICENSE) together
+with the following third-party components. License identifiers were taken from
+each NuGet package's metadata.
+
+Settings window (RoundedTB.exe) and its dependencies
+----------------------------------------------------
+- WPF-UI 1.2.1                — MIT      — https://github.com/lepoco/wpfui
+- Hardcodet.NotifyIcon.Wpf 1.1.0 — CPOL 1.02 — https://github.com/hardcodet/wpf-notifyicon
+- Newtonsoft.Json 13.0.1      — MIT      — https://www.newtonsoft.com/json
+- Microsoft.CSharp 4.7.0      — MIT      — Microsoft .NET component
+- System.Data.DataSetExtensions 4.5.0 — MIT — Microsoft .NET component
+- Microsoft.Windows.Compatibility 6.0.0 and its transitive assemblies
+  (e.g. System.ComponentModel.Composition, System.Data.SqlClient,
+  System.DirectoryServices.*, System.Management, System.IO.Ports,
+  System.Runtime.Caching, System.ServiceModel.*, System.Speech,
+  System.Web.Services.Description, Microsoft.Bcl.AsyncInterfaces,
+  Microsoft.Extensions.ObjectPool) — MIT — Microsoft .NET components
+
+.NET runtime assemblies
+-----------------------
+The `System.*` / `Microsoft.*` assemblies bundled with the framework-dependent
+settings window are Microsoft .NET components distributed under the MIT license.
+
+License texts
+-------------
+Full license texts are available from the package sources above and, where the
+package ships a license file, in the `licenses/` folder of this package.
+The Code Project Open License (CPOL) 1.02 governs Hardcodet.NotifyIcon.Wpf and
+permits redistributing its executable files in aggregate with this application;
+its copyright and attribution notices are retained.

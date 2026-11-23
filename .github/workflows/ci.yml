@@ -11,6 +11,7 @@ jobs:
   build:
     name: build-windows
     runs-on: windows-2022
+    if: ${{ !startsWith(github.ref, 'refs/tags/light-v') }}
 
     steps:
     - name: Checkout
@@ -103,18 +104,95 @@ jobs:
           .\dist\win-x64\
 
     - name: Package release
-      if: startsWith(github.ref, 'refs/tags/')
+      if: startsWith(github.ref, 'refs/tags/v1.0')
       run: |
         Compress-Archive -Path .\dist\win-x64\* -DestinationPath .\RoundedTB-win-x64-self-contained.zip -Force
 
     - name: Package framework-dependent release
-      if: startsWith(github.ref, 'refs/tags/')
+      if: startsWith(github.ref, 'refs/tags/v1.0')
       run: |
         Compress-Archive -Path .\dist\framework\* -DestinationPath .\RoundedTB-win-x64-framework-dependent.zip -Force
 
     - name: Create GitHub release
-      if: startsWith(github.ref, 'refs/tags/')
+      if: startsWith(github.ref, 'refs/tags/v1.0')
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
         gh release create "${{ github.ref_name }}" ".\RoundedTB-win-x64-self-contained.zip" ".\RoundedTB-win-x64-framework-dependent.zip" --title "RoundedTB ${{ github.ref_name }}" --generate-notes
+
+  light:
+    name: light-host-prerelease
+    runs-on: windows-2022
+    if: ${{ startsWith(github.ref, 'refs/tags/light-v') || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Set up .NET SDK
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Set up MSBuild
+      uses: microsoft/setup-msbuild@v3
+
+    - name: NuGet Restore
+      run: |
+        cd ${{ github.workspace }}
+        nuget restore RoundedTB.sln
+
+    - name: Publish settings window (framework-dependent)
+      run: |
+        cd ${{ github.workspace }}
+        msbuild RoundedTB\RoundedTB.csproj -restore -property:Configuration=Release -property:RuntimeIdentifier=win-x64 -property:SelfContained=false -property:PublishDir=${{ github.workspace }}/dist/light-settings/ -t:Publish
+
+    - name: Build lightweight host (and run self-tests)
+      shell: pwsh
+      run: |
+        & "${{ github.workspace }}\RoundedTB.Host\build-host.ps1" -OutputDir "${{ github.workspace }}\dist\light-host" -RunSelfTests
+
+    - name: Assemble portable package
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $pkg = "${{ github.workspace }}\dist\light-package"
+        New-Item -ItemType Directory -Force -Path $pkg | Out-Null
+        Copy-Item "${{ github.workspace }}\dist\light-settings\*" $pkg -Recurse -Force
+        Copy-Item "${{ github.workspace }}\dist\light-host\RoundedTBHost.exe" $pkg -Force
+        Copy-Item "${{ github.workspace }}\dist\light-host\tray.ico" $pkg -Force
+        Copy-Item "${{ github.workspace }}\LICENSE" $pkg -Force
+        Copy-Item "${{ github.workspace }}\RoundedTB.Host\README.md" $pkg -Force
+        Copy-Item "${{ github.workspace }}\RoundedTB.Host\THIRD-PARTY-NOTICES.txt" $pkg -Force
+        Copy-Item "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md" $pkg -Force
+        Get-ChildItem $pkg -Recurse -Include *.pdb,*.xml,probe.log -File -ErrorAction SilentlyContinue |
+          Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem $pkg -Directory -Recurse -ErrorAction SilentlyContinue |
+          Where-Object { $_.Name -match '^[a-z]{2}(-[A-Za-z]{2,4})?$' -and $_.Name -ne 'en' } |
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        $lic = Join-Path $pkg 'licenses'
+        New-Item -ItemType Directory -Force -Path $lic | Out-Null
+        $cache = Join-Path $env:USERPROFILE '.nuget\packages'
+        if (Test-Path $cache) {
+          Get-ChildItem $cache -Recurse -Include 'LICENSE','LICENSE.txt','LICENSE.md' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\(hardcodet\.notifyicon\.wpf|wpf-ui|newtonsoft\.json)\\' } |
+            ForEach-Object {
+              $name = $_.Directory.Parent.Name + '-' + $_.Name
+              Copy-Item $_.FullName (Join-Path $lic $name) -Force -ErrorAction SilentlyContinue
+            }
+        }
+        Compress-Archive -Path "$pkg\*" -DestinationPath "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip" -Force
+
+    - name: Upload light package artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: RoundedTBHost-light
+        path: |
+          .\RoundedTBHost-light-*.zip
+
+    - name: Create lightweight host pre-release
+      if: ${{ startsWith(github.ref, 'refs/tags/light-v') }}
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost-light-${{ github.ref_name }}.zip" --title "RoundedTB Light ${{ github.ref_name }}" --prerelease --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"
