@@ -18,8 +18,8 @@
 - 已完成：WPF stable `v1.0.6`；Light 宿主源码进仓库；单 EXE 双进程 `.4` prerelease 已发布；旧 WPF Release 已补 LICENSE/third-party notices。
 - 已完成：High integrity Terminal 聚焦时悬停几乎不触发的问题已修复（`2e87c99`，每 tick 用 `GetCursorPos` 采样），现场 A/B 通过，用户确认正常。
 - 已完成：`light-v0.1.0-preview.5` 预发布（hover 修复；ZIP 只含程序 EXE，许可证作为独立 Release 资产）。Settings 面板已由用户确认可正常打开。
-- 进行中：`v0.1.0` 正式 Release：直发 `RoundedTBHost.exe`（无 ZIP），去掉 Pre-release 标记，`--latest=false`；CI 已改造，待 tag。
-- 下一步：推送 `light-v0.1.0` 并核对 Release 资产；之后继续多显示器/非底边/TTB/Explorer 重启等验收。
+- 已完成：`v0.1.0` 正式 Release：直发 `RoundedTBHost.exe`（无 ZIP），`LICENSE`/`THIRD-PARTY-NOTICES.txt`/SHA256 为独立资产，非预发布；WPF `v1.0.6` 仍为 Latest。
+- 下一步：继续多显示器/非底边/TTB/Explorer 重启等验收。
 
 ## 必须保留的决策
 
