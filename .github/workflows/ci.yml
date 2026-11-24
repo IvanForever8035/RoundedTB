@@ -149,10 +149,10 @@ jobs:
         $pkg = "${{ github.workspace }}\dist\light-package"
         New-Item -ItemType Directory -Force -Path $pkg | Out-Null
         Copy-Item "${{ github.workspace }}\dist\light-publish\RoundedTBHost.exe" $pkg -Force
-        Copy-Item "${{ github.workspace }}\LICENSE" $pkg -Force
-        Copy-Item "${{ github.workspace }}\RoundedTB.Host\THIRD-PARTY-NOTICES.txt" $pkg -Force
         $exeCount = @(Get-ChildItem $pkg -Filter '*.exe' -File).Count
+        $fileCount = @(Get-ChildItem $pkg -File).Count
         if ($exeCount -ne 1) { throw "Expected one program EXE in package; found $exeCount" }
+        if ($fileCount -ne 1) { throw "Expected only the program EXE in package; found $fileCount files" }
         Write-Host 'Portable package files:'
         Get-ChildItem $pkg -Recurse -File | ForEach-Object { Write-Host $_.FullName }
         $assetVersion = "${{ github.ref_name }}"
@@ -176,4 +176,4 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost-${{ github.ref_name }}.zip" "${{ github.workspace }}\RoundedTBHost-${{ github.ref_name }}.zip.sha256" --title "RoundedTB Light experimental single-EXE" --prerelease --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"
+        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost-${{ github.ref_name }}.zip" "${{ github.workspace }}\RoundedTBHost-${{ github.ref_name }}.zip.sha256" "${{ github.workspace }}\LICENSE" "${{ github.workspace }}\RoundedTB.Host\THIRD-PARTY-NOTICES.txt" --title "RoundedTB Light experimental single-EXE" --prerelease --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"

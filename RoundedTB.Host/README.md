@@ -5,6 +5,9 @@ runs the lightweight Win32 tray host by default and opens the WPF settings UI
 when relaunched with `--settings-only`. Host and settings remain separate
 processes; closing the settings window does not stop the host.
 
+License files are not bundled in the program ZIP. `LICENSE` and
+`THIRD-PARTY-NOTICES.txt` are published as separate assets on the release page.
+
 ## Requirements
 
 - Windows 11.
@@ -17,11 +20,13 @@ processes; closing the settings window does not stop the host.
 
 Single monitor, bottom taskbar:
 - Bottom-edge hover reveal (no resting peek strip) and retract.
-- Tray-menu toggles (Tray hover / App segment), saved to config.
-- Settings UI opens from the same EXE; Apply writes `%LOCALAPPDATA%\rtb.json`
-  and the host reloads it.
-- Closing the settings UI exits its child process while the host remains running.
+- Hover reveal field-tested with an elevated terminal focused; cursor position is
+  sampled every tick, so it no longer depends on Raw Input delivery.
 - Normal host exit restores the taskbar.
+
+The settings initialization/resource path is covered by CI self-test. **Known
+issue:** the user reported the Settings window does not open in preview.4; the
+candidate initialization fix has not yet passed a manual UI smoke test.
 
 ## Not yet verified
 
@@ -45,5 +50,5 @@ enabled, and delete the folder. The settings/config file is not removed.
 
 ## License
 
-GPL-3.0 (see `LICENSE`). Bundled third-party components are listed in
-`THIRD-PARTY-NOTICES.txt`.
+GPL-3.0 (see the `LICENSE` asset on the release page). Bundled third-party
+components are listed in `THIRD-PARTY-NOTICES.txt`, also a separate release asset.
