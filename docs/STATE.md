@@ -23,7 +23,7 @@ RoundedTB fork：保留 WPF 稳定版，同时逐步验证轻量 Windows 11 任�
 - Light `.4`：`light-v0.1.0-preview.4`；framework-dependent 单文件，目标机需安装 .NET 9 Windows Desktop Runtime x64。**.NET 9 于 2026-11-10 EOL**，这是实验性预发布，不是稳定版。
 - `.4` ZIP 14,053,004 bytes，SHA256 已与侧车文件核对一致；包含 `RoundedTBHost.exe`、`LICENSE`、`THIRD-PARTY-NOTICES.txt`。
 - **发布包规则（2026-11-24 起）**：Light ZIP 只包含程序 EXE；`LICENSE` 与 `THIRD-PARTY-NOTICES.txt` 作为 GitHub Release 的独立资产上传，不再放进程序包。CI `ci.yml` 的 light job 已按此调整（校验包内只有 1 个文件）。
-- `.1`–`.4` tags/assets 均保留，不重写。下一次 prerelease 为 `.5`，包含 hover 修复与新的打包规则；尚未创建。
+- `.1`–`.4` tags/assets 均保留，不重写。**`.5` 已发布**：`light-v0.1.0-preview.5`（commit `5f53f3b`），prerelease；资产为单 EXE ZIP、SHA256、`LICENSE`、`THIRD-PARTY-NOTICES.txt`（后两者独立，不在 ZIP 内）。包含 hover 修复（`2e87c99`）。
 - WPF Release 资产 v1.0.1–v1.0.6 已通过 `license-attach-*` workflow 附加 `LICENSE` 与 `THIRD-PARTY-NOTICES.txt`；原 ZIP 未重建。v1.0.0 无 Release，跳过。
 - CI workflow 将 WPF `v1.0*` stable 与 Light `light-v*` prerelease 隔离。本机无 .NET SDK/MSBuild、无 `gh`；Windows CI 负责 Light 构建/发布。
 
