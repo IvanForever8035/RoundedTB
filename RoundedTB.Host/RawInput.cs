@@ -29,13 +29,15 @@ namespace TrayProbe
 
         internal static void Stop()
         {
-            if (!Enabled) return;
-            RAWINPUTDEVICE[] devices = new RAWINPUTDEVICE[1];
-            devices[0].UsagePage = 1;
-            devices[0].Usage = 2;
-            devices[0].Flags = 0x00000001; // RIDEV_REMOVE
-            devices[0].Target = IntPtr.Zero;
-            RegisterRawInputDevices(devices, 1, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE)));
+            if (Enabled)
+            {
+                RAWINPUTDEVICE[] devices = new RAWINPUTDEVICE[1];
+                devices[0].UsagePage = 1;
+                devices[0].Usage = 2;
+                devices[0].Flags = 0x00000001; // RIDEV_REMOVE
+                devices[0].Target = IntPtr.Zero;
+                RegisterRawInputDevices(devices, 1, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE)));
+            }
             Enabled = false;
         }
 

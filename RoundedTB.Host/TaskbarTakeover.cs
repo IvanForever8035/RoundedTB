@@ -31,8 +31,6 @@ namespace TrayProbe
         private static bool compositionCompat;
         private static bool fillOnMaximise = true;
         private static bool fillOnTaskSwitch = true;
-        private static int pointerX, pointerY;
-        private static bool pointerReady;
 
         internal static string Failure = "";
         internal static int AppliedCount;
@@ -53,10 +51,6 @@ namespace TrayProbe
 
         internal static void SetPointer(int x, int y)
         {
-            pointerX = x;
-            pointerY = y;
-            pointerReady = true;
-
             bool onEdge = false;
             foreach (TaskbarState state in States.Values)
             {
@@ -422,18 +416,19 @@ namespace TrayProbe
                 POINT cursor;
                 bool haveCursor = false;
                 bool cursorOutsideEdge = false;
-                bool pointerAtEdge = pointerReady && TaskbarModel.Contains(
-                    TaskbarModel.EdgeTrigger(monitor, state.Edge, 2), pointerX, pointerY);
-                if (RawInput.Enabled && pointerReady)
+                if (GetCursorPos(out cursor))
                 {
-                    cursor.X = pointerX;
-                    cursor.Y = pointerY;
+                    // Sample the live cursor on each existing tick. Raw Input
+                    // remains an immediate tick signal, but is not the position
+                    // source because it may stop arriving across integrity levels.
+                    SetPointer(cursor.X, cursor.Y);
                     haveCursor = true;
-                    cursorOutsideEdge = autoHideState == AutoHideGeometry.State.Hidden && !pointerAtEdge;
                 }
-                else if (GetCursorPos(out cursor))
+
+                if (haveCursor && autoHideState == AutoHideGeometry.State.Hidden)
                 {
-                    haveCursor = true;
+                    cursorOutsideEdge = !TaskbarModel.Contains(
+                        TaskbarModel.EdgeTrigger(monitor, state.Edge, 2), cursor.X, cursor.Y);
                 }
 
                 if (haveCursor && !cursorOutsideEdge)
