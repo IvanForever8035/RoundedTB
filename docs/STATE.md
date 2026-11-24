@@ -11,7 +11,7 @@ RoundedTB fork：保留 WPF 稳定版，同时逐步验证轻量 Windows 11 任�
 
 - **当前会话运行**：2026-11-24 现场验证后，运行分支 CI 构建的候选 `F:\Program Files\Claude\downloads\light-candidate-2e87c99\run\RoundedTBHost.exe`（commit `2e87c99`，PID 20200）；原 `.4` 已正常退出。候选位于下载目录，重启后不会自动沿用。
 - **重要现场问题（已解决）**：用户反馈 Terminal 聚焦时任务栏悬停几乎无法触发。根因是 host 复用最后一次 Raw Input 坐标，而 Raw Input 在 High integrity 前台窗口下可能停止送达。修复为每个已有 tick 用 `GetCursorPos` 采样实时光标（`2e87c99`）。现场 A/B：`.4` 6 次中 2 次失败，候选 10/10 成功（elevated Windows Terminal 前台）；用户确认为“没问题了”。
-- **Settings 面板**：`.4` 用户反馈打不开。`App.InitializeComponent()` 修复候选（`7fc2981`）在 CI 通过，但仍未现场确认；`.5` 发布说明继续标注为已知问题。
+- **Settings 面板**：用户于 2026-11-24 确认 `.5` 的托盘 Settings 能正常打开（设置子进程已启动并显示），`.4` 的故障在 `.5` 已不复现。Apply/热重载此前已验证。
 - **开机启动项**：HKCU Run 仍指向旧路径 `F:\Program Files\Claude\RoundedTB-light\RoundedTBHost.exe`（旧 96,768 B .NET Framework 宿主）；未迁移。手动启动的下载目录候选不等于重启后会使用它。
 - **旧便携目录**：`F:\Program Files\Claude\RoundedTB-light` 保留双 EXE 旧包。未获用户授权前不要替换该目录或更改启动项。
 - **配置/日志（`.6` 起）**：统一在 `%LOCALAPPDATA%\RoundedTB\`：`rtb.json`、`rtb.log`（设置 UI）、`rtb-host.log`（host）。旧 `%LOCALAPPDATA%\rtb.json` 首次运行自动复制迁移，旧文件保留。EXE 旁不再写 `probe.log`；旧 `probe.log` 可删除。

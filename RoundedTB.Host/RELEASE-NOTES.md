@@ -33,17 +33,9 @@ Windows 11, single monitor, bottom taskbar:
 - User-confirmed bottom-edge hover reveal and retract.
 - Field-tested hover reveal while an elevated terminal had focus; the released
   `preview.4` intermittently failed, this build revealed reliably.
+- Settings window opens from the tray and Apply reloads the host (confirmed on
+  preview.5).
 - Normal host exit restores taskbar state.
-
-The WPF settings initialization fix passes the CI resource/StartupUri self-test;
-manual opening, Apply and reload still have not been confirmed by the user.
-
-## Known issue
-
-The Settings... panel has been reported not to open in preview.4. CI verifies the
-WPF resource/StartupUri initialization path, but the candidate fix has not yet
-passed a manual UI smoke test. Use the stable WPF release if you need Settings
-until this is confirmed.
 
 ## Requirements and runtime warning
 

@@ -24,9 +24,8 @@ Single monitor, bottom taskbar:
   sampled every tick, so it no longer depends on Raw Input delivery.
 - Normal host exit restores the taskbar.
 
-The settings initialization/resource path is covered by CI self-test. **Known
-issue:** the user reported the Settings window does not open in preview.4; the
-candidate initialization fix has not yet passed a manual UI smoke test.
+The settings window opens from the tray and Apply reloads the host (confirmed on
+preview.5).
 
 ## Not yet verified
 

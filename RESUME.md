@@ -17,9 +17,9 @@
 
 - 已完成：WPF stable `v1.0.6`；Light 宿主源码进仓库；单 EXE 双进程 `.4` prerelease 已发布；旧 WPF Release 已补 LICENSE/third-party notices。
 - 已完成：High integrity Terminal 聚焦时悬停几乎不触发的问题已修复（`2e87c99`，每 tick 用 `GetCursorPos` 采样），现场 A/B 通过，用户确认正常。
-- 已完成：`light-v0.1.0-preview.5` 预发布（hover 修复；ZIP 只含程序 EXE，许可证作为独立 Release 资产）。Settings 面板仍未现场确认。
-- 进行中：`.6` 统一数据目录（`%LOCALAPPDATA%\RoundedTB\`：rtb.json / rtb.log / rtb-host.log），EXE 旁不再写文件；待 CI 验证与 tag。
-- 下一步：验证 `.6` 候选；确认后发布 `.6`。之后继续多显示器/非底边/TTB/Explorer 重启等验收。
+- 已完成：`light-v0.1.0-preview.5` 预发布（hover 修复；ZIP 只含程序 EXE，许可证作为独立 Release 资产）。Settings 面板已由用户确认可正常打开。
+- 进行中：`.6` 统一数据目录（`%LOCALAPPDATA%\RoundedTB\`：rtb.json / rtb.log / rtb-host.log），EXE 旁不再写文件；CI 通过，待 tag。
+- 下一步：发布 `.6`；之后继续多显示器/非底边/TTB/Explorer 重启等验收。
 
 ## 必须保留的决策
 

@@ -43,7 +43,7 @@
 
 - **已完成**：轻量宿主源码纳入 repo；WPF `--settings-only` 合并后同一个 net9 apphost 支持默认 host 与 settings child process；GitHub Actions 将 WPF `v1.0*` 与 Light `light-v*` 隔离；公开 prerelease `.4` 精简 ZIP 单 EXE + LICENSE + THIRD-PARTY-NOTICES。
 - **待发布 `.5`**：包含 hover 修复（`2e87c99`）与新的打包规则（ZIP 只含程序 EXE，许可证/声明作为 Release 独立资产）。tag 尚未创建。
-- **已知问题**：用户现场报告 `.4` Settings... 打不开。提交 `7fc2981` 有 WPF App 初始化修复且 CI 自检绿，但 `.4` tag 未包含该提交；尚未现场确认候选修复有效，也未发 `.5`。不要把 `.4` 写成 Settings 已验证可用。
+- **Settings 状态**：用户于 2026-11-24 确认 `.5` 的托盘 Settings 可正常打开；`.4` 的故障不再复现。`.6` 发布说明已去掉已知问题条目。
 - **当前限制**：.NET 9 framework-dependent 且已 EOL，目标机需要 .NET 9 Windows Desktop Runtime。多显示器/非底边/TTB/maximise/Explorer restart/强杀恢复尚未完整验收。
 - **下一步**：首先重现并定位 Settings UI 故障；真实 WPF UI smoke test 通过后才创建新 Light prerelease（`.5`），不重写 `.4`。之后继续平台验收和 runtime 支持迁移；完成前不能称稳定版或替代 WPF v1.0.6。
 - **运行/启动项状态**：当前 `.4` 是用户从下载目录手动启动；HKCU Run 仍指向旧 `RoundedTB-light` 目录，未迁移。

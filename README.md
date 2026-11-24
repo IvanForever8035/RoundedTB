@@ -7,7 +7,7 @@
 
 
 ## How do I get it?
-The easiest way to download the stable WPF version of RoundedTB is from the [Microsoft Store](https://www.microsoft.com/store/productId/9MTFTXSJ9M7F) or the [GitHub Releases](https://github.com/IvanForever8035/RoundedTB/releases) page. Releases `v1.0.x` are the WPF line. An experimental **Windows 11 lightweight-host prerelease** is also available: [RoundedTB Light v0.1.0-preview.4](https://github.com/IvanForever8035/RoundedTB/releases/tag/light-v0.1.0-preview.4). It is a single EXE and requires the .NET 9 Windows Desktop Runtime x64 (.NET 9 is out of support). **Known issue:** the Settings... panel has been reported not to open in preview.4; use the WPF stable release if you need settings until a fixed prerelease is published. The Light prerelease is not a stable replacement for the WPF release. See its release page for scope and limitations.
+The easiest way to download the stable WPF version of RoundedTB is from the [Microsoft Store](https://www.microsoft.com/store/productId/9MTFTXSJ9M7F) or the [GitHub Releases](https://github.com/IvanForever8035/RoundedTB/releases) page. Releases `v1.0.x` are the WPF line. An experimental **Windows 11 lightweight-host prerelease** is also available: [RoundedTB Light v0.1.0-preview.6](https://github.com/IvanForever8035/RoundedTB/releases/tag/light-v0.1.0-preview.6). It is a single EXE and requires the .NET 9 Windows Desktop Runtime x64 (.NET 9 is out of support). The prerelease is not a stable replacement for the WPF release. See its release page for scope and limitations.
 
 ## To use
 ### Basic options
