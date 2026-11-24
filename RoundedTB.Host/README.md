@@ -39,9 +39,13 @@ candidate initialization fix has not yet passed a manual UI smoke test.
 
 ## Run
 
-Extract the package and run `RoundedTBHost.exe`. Use the tray icon's **Settings...**
-item to open the settings child process. The settings and host share
-`%LOCALAPPDATA%\rtb.json`; logs are written to `probe.log` beside the EXE.
+Extract the package and run `RoundedTBHost.exe`. It does not write anything beside
+the executable; the EXE can live alone in any folder. Per-user files live in
+`%LOCALAPPDATA%\RoundedTB\`: `rtb.json` (settings), `rtb.log` (settings UI log) and
+`rtb-host.log` (host diagnostics). A settings file left by older builds at
+`%LOCALAPPDATA%\rtb.json` is copied there on first run. Use the tray icon's
+**Settings...** item to open the settings child process. The host watches
+`rtb.json` and reloads after Apply.
 
 ## Uninstall / rollback
 

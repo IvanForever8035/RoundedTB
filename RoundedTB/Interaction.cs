@@ -142,6 +142,7 @@ namespace RoundedTB
 
         public void FileSystem()
         {
+            AppPaths.Prepare();
             File.Create(mw.logPath).Close();
             if (!File.Exists(mw.configPath))
             {

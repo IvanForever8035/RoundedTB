@@ -1,20 +1,31 @@
-# RoundedTB Light — experimental single-EXE pre-release 0.1.0-preview.5
+# RoundedTB Light — experimental single-EXE pre-release 0.1.0-preview.6
 
 The download ZIP now contains only `RoundedTBHost.exe`. License files are not
 bundled inside the program package: `LICENSE` and `THIRD-PARTY-NOTICES.txt` are
 published as separate assets on this release page. Usage and the runtime
 requirement are described here instead of bundled README/release-notes files.
 
+The EXE is fully standalone: nothing is written beside it, so it can be placed in
+any folder on its own. Per-user files now live together in
+`%LOCALAPPDATA%\RoundedTB\`:
+
+- `rtb.json` — settings shared by host and settings UI.
+- `rtb.log` — settings UI log.
+- `rtb-host.log` — host diagnostics (startup, takeover, autohide alignment).
+
+An existing `%LOCALAPPDATA%\rtb.json` from older builds is copied into the new
+folder on first run; the old file is left in place. `probe.log` beside the EXE is
+gone and can be deleted.
+
 This pre-release consolidates the lightweight host and settings window into one
 program EXE. By default it runs the Win32 tray host; when the host launches itself
 with `--settings-only`, the same executable opens the WPF settings window in a
 separate child process. Closing settings leaves the host running.
 
-Changes since `preview.4`:
-- Hover reveal now samples the live cursor with `GetCursorPos` on each existing
-  host tick instead of reusing the last Raw Input position. Raw Input is still an
-  immediate tick signal, but no longer the position source, because it can stop
-  arriving while a higher-integrity window is focused.
+Changes since `preview.5`:
+- All runtime files moved from the program folder and the `%LOCALAPPDATA%` root
+  into `%LOCALAPPDATA%\RoundedTB\`, with automatic settings migration.
+- Host diagnostics log rotates at 1 MiB instead of silently stopping.
 
 ## Verified scope
 

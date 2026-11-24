@@ -295,7 +295,8 @@ namespace TrayProbe
             bool started;
             if (settingsTakeover)
             {
-                string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "rtb.json");
+                RoundedTB.AppPaths.Prepare();
+                string configPath = RoundedTB.AppPaths.ConfigPath;
                 settingsPath = configPath;
                 activeSettings = RuntimeSettings.Load(configPath);
                 TaskbarTakeover.SetCompositionCompatibility(activeSettings != null && activeSettings.CompositionCompat);
@@ -1331,15 +1332,23 @@ namespace TrayProbe
             }
         }
 
+        private static readonly object logLock = new object();
+
         private static void Log(string baseDir, string text)
         {
             try
             {
-                string path = Path.Combine(baseDir, "probe.log");
-                FileInfo info = new FileInfo(path);
-                if (info.Exists && info.Length > 1024 * 1024) return;
-                File.AppendAllText(path, string.Format("[{0:yyyy-MM-dd HH:mm:ss.fff}] {1}{2}",
-                    DateTime.Now, text, Environment.NewLine));
+                RoundedTB.AppPaths.Prepare();
+                lock (logLock)
+                {
+                    // Keep diagnostics out of the program folder. The settings
+                    // UI log lives in the same folder under its own name.
+                    string path = RoundedTB.AppPaths.HostLogPath;
+                    FileInfo info = new FileInfo(path);
+                    if (info.Exists && info.Length > 1024 * 1024) File.Delete(path);
+                    File.AppendAllText(path, string.Format("[{0:yyyy-MM-dd HH:mm:ss.fff}] {1}{2}",
+                        DateTime.Now, text, Environment.NewLine));
+                }
             }
             catch (Exception)
             {

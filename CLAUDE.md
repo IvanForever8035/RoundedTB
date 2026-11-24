@@ -30,8 +30,8 @@ msbuild "-property:Configuration=Release" -t:RoundedTB
 
 脚本执行 framework-dependent single-file `win-x64` publish；运行机器需 .NET 9 Windows Desktop Runtime。当前 runtime 已结束支持，仅用于实验性 prerelease。不要替换用户日常宿主或操作 Explorer，除非用户明确授权。
 
-- 配置：`%LOCALAPPDATA%\rtb.json`
-- 日志：`%LOCALAPPDATA%\rtb.log`（WPF）；轻量宿主诊断日志在其运行目录 `probe.log`。
+- 配置：`%LOCALAPPDATA%\RoundedTB\rtb.json`；日志：同目录 `rtb.log`（设置 UI）与 `rtb-host.log`（轻量 host）。旧 `%LOCALAPPDATA%\rtb.json` 会首次运行时复制迁移。
+- 程序运行时不在 EXE 旁写任何文件；EXE 可单独放置。旧版生成的 `probe.log` 可删除。
 - 开机启动：轻量宿主托盘菜单 `Start with Windows`（HKCU Run，默认关闭）。
 
 ## 代码结构

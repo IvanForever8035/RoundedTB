@@ -33,8 +33,8 @@ namespace RoundedTB
         public bool isWindows11;
         public List<Types.Taskbar> taskbarDetails = new List<Types.Taskbar>();
         public bool shouldReallyDieNoReally = false;
-        public string configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "rtb.json");
-        public string logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "rtb.log");
+        public string configPath = AppPaths.ConfigPath;
+        public string logPath = AppPaths.SettingsLogPath;
         public Types.Settings activeSettings = new Types.Settings();
         public BackgroundWorker taskbarThread = new BackgroundWorker();
         public IntPtr hwndDesktopButton = IntPtr.Zero;

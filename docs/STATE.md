@@ -14,7 +14,8 @@ RoundedTB fork：保留 WPF 稳定版，同时逐步验证轻量 Windows 11 任�
 - **Settings 面板**：`.4` 用户反馈打不开。`App.InitializeComponent()` 修复候选（`7fc2981`）在 CI 通过，但仍未现场确认；`.5` 发布说明继续标注为已知问题。
 - **开机启动项**：HKCU Run 仍指向旧路径 `F:\Program Files\Claude\RoundedTB-light\RoundedTBHost.exe`（旧 96,768 B .NET Framework 宿主）；未迁移。手动启动的下载目录候选不等于重启后会使用它。
 - **旧便携目录**：`F:\Program Files\Claude\RoundedTB-light` 保留双 EXE 旧包。未获用户授权前不要替换该目录或更改启动项。
-- **配置**：`%LOCALAPPDATA%\rtb.json`；新 host 应监视并热重载。注意当前配置 `ShowAppList=false`、`ShowTray=false`、`TrayHoverEnabled=true`，悬停只在托盘区域触发，底部中间/左侧不触发是配置行为。
+- **配置/日志（`.6` 起）**：统一在 `%LOCALAPPDATA%\RoundedTB\`：`rtb.json`、`rtb.log`（设置 UI）、`rtb-host.log`（host）。旧 `%LOCALAPPDATA%\rtb.json` 首次运行自动复制迁移，旧文件保留。EXE 旁不再写 `probe.log`；旧 `probe.log` 可删除。
+- **当前配置行为**：`ShowAppList=false`、`ShowTray=false`、`TrayHoverEnabled=true`，悬停只在托盘区域触发，底部中间/左侧不触发是配置行为。
 - **回滚**：退出新 host 后，可运行旧 WPF `candidate-69`：`F:\Program Files\Claude\downloads\candidate-69\RoundedTB.exe`。
 
 ## 发布状态
@@ -24,6 +25,7 @@ RoundedTB fork：保留 WPF 稳定版，同时逐步验证轻量 Windows 11 任�
 - `.4` ZIP 14,053,004 bytes，SHA256 已与侧车文件核对一致；包含 `RoundedTBHost.exe`、`LICENSE`、`THIRD-PARTY-NOTICES.txt`。
 - **发布包规则（2026-11-24 起）**：Light ZIP 只包含程序 EXE；`LICENSE` 与 `THIRD-PARTY-NOTICES.txt` 作为 GitHub Release 的独立资产上传，不再放进程序包。CI `ci.yml` 的 light job 已按此调整（校验包内只有 1 个文件）。
 - `.1`–`.4` tags/assets 均保留，不重写。**`.5` 已发布**：`light-v0.1.0-preview.5`（commit `5f53f3b`），prerelease；资产为单 EXE ZIP、SHA256、`LICENSE`、`THIRD-PARTY-NOTICES.txt`（后两者独立，不在 ZIP 内）。包含 hover 修复（`2e87c99`）。
+- **`.6` 待发布**：统一数据目录到 `%LOCALAPPDATA%\RoundedTB\`，EXE 旁不再生成 `probe.log`；需 CI 验证后再打 tag。
 - WPF Release 资产 v1.0.1–v1.0.6 已通过 `license-attach-*` workflow 附加 `LICENSE` 与 `THIRD-PARTY-NOTICES.txt`；原 ZIP 未重建。v1.0.0 无 Release，跳过。
 - CI workflow 将 WPF `v1.0*` stable 与 Light `light-v*` prerelease 隔离。本机无 .NET SDK/MSBuild、无 `gh`；Windows CI 负责 Light 构建/发布。
 
