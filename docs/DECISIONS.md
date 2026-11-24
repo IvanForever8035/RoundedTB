@@ -119,3 +119,11 @@
 - **决定**：Light 包只含 `RoundedTBHost.exe`；`LICENSE` 与 `THIRD-PARTY-NOTICES.txt` 作为同一 Release 的独立资产上传。CI 在打包阶段校验包内只有程序 EXE 一个文件。`.4` 及更早资产不改写；`.5` 起适用。
 - **代价**：下载 ZIP 的用户需在同一 Release 页面另行获取许可证文件；发行说明与 README 已注明。
 
+## D15 · Light 0.1.0 作为正式 Release 直发 EXE，不再提供 ZIP
+
+- **日期**：2026-11-24
+- **背景**：用户要求发布正式版时不提供压缩包，直接把 EXE 作为 Release 资产；并明确选择去掉 Pre-release 标记、使用 `light-v0.1.0`。
+- **决定**：Light Release 资产为 `RoundedTBHost.exe`、`RoundedTBHost.exe.sha256`、`LICENSE`、`THIRD-PARTY-NOTICES.txt`，无 ZIP。`gh release create` 不加 `--prerelease`，并加 `--latest=false`，避免抢占 WPF `v1.0.6` 的 Latest 标记。`.1`–`.6` 的 ZIP 资产不改写。WPF `v1.0.x` 稳定线继续用 ZIP。
+- **代价 / 风险**：去掉 Pre-release 标记会让 Release 看起来是稳定版；但 Light 仍使用 EOL .NET 9，且多屏/非底边/TTB/Explorer 重启等未验收，发布说明必须明确“不是 WPF 稳定版替代”。用户已知悉并选择该做法。
+- **推翻条件**：若后续决定回到预发布或恢复 ZIP，可改 workflow 并发布新 tag，不重写历史资产。
+

@@ -1,20 +1,20 @@
-# RoundedTB Light — experimental pre-release
+# RoundedTB Light — lightweight host release
 
-This package contains **one program EXE**: `RoundedTBHost.exe`. The same file
-runs the lightweight Win32 tray host by default and opens the WPF settings UI
-when relaunched with `--settings-only`. Host and settings remain separate
-processes; closing the settings window does not stop the host.
+The release asset is **one program EXE**: `RoundedTBHost.exe`, published directly
+(no ZIP). The same file runs the lightweight Win32 tray host by default and opens
+the WPF settings UI when relaunched with `--settings-only`. Host and settings
+remain separate processes; closing the settings window does not stop the host.
 
-License files are not bundled in the program ZIP. `LICENSE` and
-`THIRD-PARTY-NOTICES.txt` are published as separate assets on the release page.
+`LICENSE`, `THIRD-PARTY-NOTICES.txt` and `RoundedTBHost.exe.sha256` are separate
+assets on the release page.
 
 ## Requirements
 
 - Windows 11.
 - **.NET 9 Windows Desktop Runtime (x64)** must already be installed. This is a
   framework-dependent build; it does not install the runtime. .NET 9 reached end
-  of support on 2026-11-10, so this pre-release uses an unsupported runtime and
-  is for evaluation only.
+  of support on 2026-11-10, so this release uses an unsupported runtime and is
+  for evaluation only.
 
 ## Verified scope
 
@@ -38,8 +38,8 @@ preview.5).
 
 ## Run
 
-Extract the package and run `RoundedTBHost.exe`. It does not write anything beside
-the executable; the EXE can live alone in any folder. Per-user files live in
+Download `RoundedTBHost.exe` and run it. It does not write anything beside the
+executable; the EXE can live alone in any folder. Per-user files live in
 `%LOCALAPPDATA%\RoundedTB\`: `rtb.json` (settings), `rtb.log` (settings UI log) and
 `rtb-host.log` (host diagnostics). A settings file left by older builds at
 `%LOCALAPPDATA%\rtb.json` is copied there on first run. Use the tray icon's

@@ -42,7 +42,7 @@
 ## 阶段 4 · 实验性预发布与产品化（预发布已发布；稳定化待定）
 
 - **已完成**：轻量宿主源码纳入 repo；WPF `--settings-only` 合并后同一个 net9 apphost 支持默认 host 与 settings child process；GitHub Actions 将 WPF `v1.0*` 与 Light `light-v*` 隔离；公开 prerelease `.4` 精简 ZIP 单 EXE + LICENSE + THIRD-PARTY-NOTICES。
-- **待发布 `.5`**：包含 hover 修复（`2e87c99`）与新的打包规则（ZIP 只含程序 EXE，许可证/声明作为 Release 独立资产）。tag 尚未创建。
+- **待发布 `v0.1.0`**：Light 正式 Release（无预发布标记、不标 Latest），直接上传 `RoundedTBHost.exe` 而非 ZIP；`LICENSE`、`THIRD-PARTY-NOTICES.txt`、`RoundedTBHost.exe.sha256` 为独立资产。tag 尚未创建。
 - **Settings 状态**：用户于 2026-11-24 确认 `.5` 的托盘 Settings 可正常打开；`.4` 的故障不再复现。`.6` 发布说明已去掉已知问题条目。
 - **当前限制**：.NET 9 framework-dependent 且已 EOL，目标机需要 .NET 9 Windows Desktop Runtime。多显示器/非底边/TTB/maximise/Explorer restart/强杀恢复尚未完整验收。
 - **下一步**：首先重现并定位 Settings UI 故障；真实 WPF UI smoke test 通过后才创建新 Light prerelease（`.5`），不重写 `.4`。之后继续平台验收和 runtime 支持迁移；完成前不能称稳定版或替代 WPF v1.0.6。

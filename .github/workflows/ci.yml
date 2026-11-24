@@ -121,7 +121,7 @@ jobs:
         gh release create "${{ github.ref_name }}" ".\RoundedTB-win-x64-self-contained.zip" ".\RoundedTB-win-x64-framework-dependent.zip" --title "RoundedTB ${{ github.ref_name }}" --generate-notes
 
   light:
-    name: light-host-prerelease
+    name: light-host-release
     runs-on: windows-2022
     if: ${{ startsWith(github.ref, 'refs/tags/light-v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'branch') }}
 
@@ -142,38 +142,33 @@ jobs:
       run: |
         & "${{ github.workspace }}\RoundedTB.Host\build-host.ps1" -OutputDir "${{ github.workspace }}\dist\light-publish" -RunSelfTests
 
-    - name: Assemble and verify single-EXE package
+    - name: Stage and verify the single-EXE release asset
       shell: pwsh
       run: |
         $ErrorActionPreference = 'Stop'
-        $pkg = "${{ github.workspace }}\dist\light-package"
-        New-Item -ItemType Directory -Force -Path $pkg | Out-Null
-        Copy-Item "${{ github.workspace }}\dist\light-publish\RoundedTBHost.exe" $pkg -Force
-        $exeCount = @(Get-ChildItem $pkg -Filter '*.exe' -File).Count
-        $fileCount = @(Get-ChildItem $pkg -File).Count
-        if ($exeCount -ne 1) { throw "Expected one program EXE in package; found $exeCount" }
-        if ($fileCount -ne 1) { throw "Expected only the program EXE in package; found $fileCount files" }
-        Write-Host 'Portable package files:'
-        Get-ChildItem $pkg -Recurse -File | ForEach-Object { Write-Host $_.FullName }
-        $assetVersion = "${{ github.ref_name }}"
-        if ($assetVersion.Contains('/') -or $assetVersion.Contains('\\')) { $assetVersion = "${{ github.sha }}" }
-        $zipName = "RoundedTBHost-$assetVersion.zip"
-        $zipPath = Join-Path "${{ github.workspace }}" $zipName
-        Compress-Archive -Path "$pkg\*" -DestinationPath $zipPath -Force
-        $hash = (Get-FileHash $zipPath -Algorithm SHA256).Hash
-        Set-Content "$zipPath.sha256" "$hash  $zipName" -Encoding ascii
+        $publish = "${{ github.workspace }}\dist\light-publish"
+        $exe = Join-Path $publish 'RoundedTBHost.exe'
+        if (-not (Test-Path $exe)) { throw 'Published RoundedTBHost.exe was not found.' }
+        $otherExecutables = @(Get-ChildItem $publish -Filter '*.exe' -File | Where-Object { $_.FullName -ne $exe })
+        if ($otherExecutables.Count -gt 0) { throw "Unexpected additional executable(s): $($otherExecutables.Name -join ', ')" }
 
-    - name: Upload light package artifact
+        $target = "${{ github.workspace }}\RoundedTBHost.exe"
+        Copy-Item $exe $target -Force
+        $hash = (Get-FileHash $target -Algorithm SHA256).Hash
+        Set-Content "$target.sha256" "$hash  RoundedTBHost.exe" -Encoding ascii
+        Write-Host "Release asset RoundedTBHost.exe SHA256 $hash"
+
+    - name: Upload light release artifact
       uses: actions/upload-artifact@v7
       with:
         name: RoundedTBHost-light
         path: |
-          .\RoundedTBHost-*.zip
-          .\RoundedTBHost-*.zip.sha256
+          .\RoundedTBHost.exe
+          .\RoundedTBHost.exe.sha256
 
-    - name: Create lightweight host pre-release
+    - name: Create lightweight host release
       if: ${{ startsWith(github.ref, 'refs/tags/light-v') }}
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost-${{ github.ref_name }}.zip" "${{ github.workspace }}\RoundedTBHost-${{ github.ref_name }}.zip.sha256" "${{ github.workspace }}\LICENSE" "${{ github.workspace }}\RoundedTB.Host\THIRD-PARTY-NOTICES.txt" --title "RoundedTB Light experimental single-EXE" --prerelease --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"
+        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost.exe" "${{ github.workspace }}\RoundedTBHost.exe.sha256" "${{ github.workspace }}\LICENSE" "${{ github.workspace }}\RoundedTB.Host\THIRD-PARTY-NOTICES.txt" --title "RoundedTB Light v0.1.0" --latest=false --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"

@@ -8,9 +8,9 @@ RoundedTB Windows 任务栏定制 fork（圆角、分段、悬停、自动隐藏
 
 - 上游：`upstream` → `RoundedTB/RoundedTB`
 - Fork：`origin` → `IvanForever8035/RoundedTB`
-- **当前会话 Light 进程**：详见 `docs/STATE.md`，用户最近手动运行 `.4`，Settings 面板有故障反馈。
+- **当前会话 Light 进程**：详见 `docs/STATE.md`。
 - **开机启动项**：仍指向旧 `F:\Program Files\Claude\RoundedTB-light\RoundedTBHost.exe`，尚未迁移到单 EXE。
-- **发布**：WPF stable `v1.0.6`；Light experimental `light-v0.1.0-preview.4`。Light 是 framework-dependent .NET 9 单 EXE，要求 .NET 9 Windows Desktop Runtime x64（EOL）。不得将其称为 stable。
+- **发布**：WPF stable `v1.0.6`；Light `v0.1.0`（正式 Release，直发单 EXE、无 ZIP、不标记 Latest）。Light 是 framework-dependent .NET 9 单 EXE，要求 .NET 9 Windows Desktop Runtime x64（EOL）。它不是 WPF stable 的替代品。
 - **源码/构建**：`RoundedTB.Host/`、`RoundedTB/RoundedTB.Light.csproj`、`RoundedTB.Host/build-host.ps1`；本机无 .NET SDK/MSBuild，CI 构建。
 
 ## 常用命令
@@ -67,4 +67,4 @@ F:\Program Files\Claude\RoundedTB-light  daily portable package (local)
 
 ## 已知限制
 
-详见 `docs/STATE.md`。Light `.4` 已确认单屏底边 hover，**Settings 面板仍有用户报告打不开**；多屏、非底边、Explorer restart、TTB、最大化填充、force-kill recovery 未验收。
+详见 `docs/STATE.md`。Light `v0.1.0` 已确认单屏底边 hover、elevated 终端的 hover、Settings 面板与正常退出恢复；多屏、非底边、Explorer restart、TTB、最大化填充、force-kill recovery 未验收。
