@@ -109,9 +109,13 @@ namespace TrayProbe
             Require(!TaskbarTakeover.ShouldIncludePeek(AutoHideGeometry.State.Visible,
                 true, true, true), "visible taskbar needs no hidden peek");
             Require(TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, true,
-                AutoHideGeometry.State.Visible), "non-target visible state is clipped to empty");
-            Require(TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, true,
                 AutoHideGeometry.State.Hidden), "non-target hidden state cannot reveal the whole bar");
+            Require(!TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, true,
+                AutoHideGeometry.State.Visible), "visible state preserves the current region during retract");
+            Require(TaskbarTakeover.ShouldKeepVisibleHoverRegionForRetraction(true, true,
+                AutoHideGeometry.State.Visible), "visible state keeps the last segment for native retract animation");
+            Require(!TaskbarTakeover.ShouldKeepVisibleHoverRegionForRetraction(true, true,
+                AutoHideGeometry.State.Hidden), "hidden state removes the stale segment trigger");
             Require(!TaskbarTakeover.ShouldApplyEmptyHoverRegion(false, true,
                 AutoHideGeometry.State.Visible), "enabled segment is applied under the cursor");
             Require(!TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, false,

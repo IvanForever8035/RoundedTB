@@ -477,16 +477,21 @@ namespace TrayProbe
                     return;
                 }
 
-                // Explorer reveals only when an enabled segment contributes
-                // edge pixels. With no hover target, keep the taskbar region
-                // empty instead of handing the whole edge back to Explorer.
+                // With no hover target, never expose the whole hidden edge.
+                // Once visible, leave the last segment region in place so
+                // Explorer can retract it with its native animation; the hidden
+                // state will install the empty region after the slide completes.
                 if (ShouldApplyEmptyHoverRegion(true, input.ShowSegmentsOnHover, autoHideState))
                 {
                     if (ApplyEmpty(state, signature)) return;
                     AbortState(state, "cannot apply empty hover region");
                     return;
                 }
-
+                if (ShouldKeepVisibleHoverRegionForRetraction(true, input.ShowSegmentsOnHover, autoHideState))
+                {
+                    state.LastSignature = signature;
+                    return;
+                }
             }
 
             if (plan.Segments.Count == 0 && includePeek)
@@ -614,9 +619,13 @@ namespace TrayProbe
         internal static bool ShouldApplyEmptyHoverRegion(bool noSegments, bool hover,
             AutoHideGeometry.State autoHideState)
         {
-            return noSegments && hover
-                && (autoHideState == AutoHideGeometry.State.Visible
-                    || autoHideState == AutoHideGeometry.State.Hidden);
+            return noSegments && hover && autoHideState == AutoHideGeometry.State.Hidden;
+        }
+
+        internal static bool ShouldKeepVisibleHoverRegionForRetraction(bool noSegments, bool hover,
+            AutoHideGeometry.State autoHideState)
+        {
+            return noSegments && hover && autoHideState == AutoHideGeometry.State.Visible;
         }
 
         private static bool HasWindowRegion(IntPtr hwnd)
