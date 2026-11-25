@@ -595,6 +595,15 @@ namespace TrayProbe
             return signature.ToString();
         }
 
+        private static bool HasTopInset(DynamicInput input, uint dpi)
+        {
+            double scale = dpi / 96.0;
+            if (input.ShowAppList && Convert.ToInt32(input.App.MarginTop * scale) > 0) return true;
+            if ((input.TrayHoverEnabled || input.ShowTray) && Convert.ToInt32(input.Tray.MarginTop * scale) > 0) return true;
+            if (input.ShowWidgets && Convert.ToInt32(input.Widgets.MarginTop * scale) > 0) return true;
+            return false;
+        }
+
         internal static bool ShouldIncludePeek(AutoHideGeometry.State autoHideState, bool hover,
             bool edgeHovered, bool topInset)
         {
