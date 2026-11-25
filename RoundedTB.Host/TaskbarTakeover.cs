@@ -491,15 +491,13 @@ namespace TrayProbe
                     return;
                 }
 
-                if (ShouldKeepHoverRegion(true, includePeek, true, autoHideState == AutoHideGeometry.State.Visible))
+                // The shell revealed the bar because the cursor touched its
+                // edge. When no enabled segment sits under the cursor, hide the
+                // bar again instead of leaving the whole taskbar on screen. Only
+                // a region that already contains segment pixels is kept, so the
+                // shell can animate the retract.
+                if (ShouldKeepHoverRegion(true, includePeek, true, HasRegionPixels(state.Hwnd)))
                 {
-                    // Keep the last segment so the shell can animate the retract.
-                    // If the region is already empty, restore the full window so
-                    // the shell still has a hittable edge to hide from.
-                    if (IsWindowRegionEmpty(state.Hwnd))
-                    {
-                        ClearRegion(state.Hwnd);
-                    }
                     return;
                 }
 
@@ -623,18 +621,18 @@ namespace TrayProbe
             return false;
         }
 
-        internal static bool ShouldKeepHoverRegion(bool noSegments, bool includePeek, bool hover, bool taskbarVisible)
+        internal static bool ShouldKeepHoverRegion(bool noSegments, bool includePeek, bool hover, bool regionHasPixels)
         {
-            return noSegments && !includePeek && hover && taskbarVisible;
+            return noSegments && !includePeek && hover && regionHasPixels;
         }
 
-        private static bool IsWindowRegionEmpty(IntPtr hwnd)
+        private static bool HasRegionPixels(IntPtr hwnd)
         {
             IntPtr scratch = CreateRectRgn(0, 0, 0, 0);
             if (scratch == IntPtr.Zero) return false;
             int kind = GetWindowRgn(hwnd, scratch);
             DeleteObject(scratch);
-            return kind == 1; // NULLREGION: a region exists, but contains no pixels.
+            return kind > 1; // SIMPLEREGION / COMPLEXREGION: at least one pixel is visible.
         }
 
         private static bool HasWindowRegion(IntPtr hwnd)

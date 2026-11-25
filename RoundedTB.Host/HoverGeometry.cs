@@ -99,15 +99,15 @@ namespace TrayProbe
             Require(!hit.Tray, "no tray window means no tray target");
 
             Require(TaskbarTakeover.ShouldKeepHoverRegion(true, false, true, true),
-                "visible taskbar keeps the last hover region for the retract animation");
+                "applied segment region is kept for the retract animation");
             Require(!TaskbarTakeover.ShouldKeepHoverRegion(true, false, true, false),
-                "hidden taskbar applies the empty hover region");
+                "region-less taskbar is hidden instead of staying fully visible");
             Require(!TaskbarTakeover.ShouldKeepHoverRegion(false, false, true, true),
                 "visible segments are applied normally");
             Require(!TaskbarTakeover.ShouldKeepHoverRegion(true, true, true, true),
                 "peek regions are still applied when needed");
 
-            return "PASS: hover hit areas, exclusive edges, peek strip, margins, gaps, missing tray, and visible-only retract rule";
+            return "PASS: hover hit areas, exclusive edges, peek strip, margins, gaps, missing tray, and region-based retract rule";
         }
 
         private static void Require(bool condition, string check)
