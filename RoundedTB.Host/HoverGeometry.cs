@@ -98,22 +98,26 @@ namespace TrayProbe
             hit = Evaluate(input, 1700, 24);
             Require(!hit.Tray, "no tray window means no tray target");
 
-            Require(TaskbarTakeover.ShouldHandHiddenHoverRegionToShell(true,
-                AutoHideGeometry.State.Hidden), "hidden hover state hands the native edge to Explorer");
-            Require(!TaskbarTakeover.ShouldHandHiddenHoverRegionToShell(true,
-                AutoHideGeometry.State.Visible), "visible hover state remains under segment clipping");
-            Require(!TaskbarTakeover.ShouldHandHiddenHoverRegionToShell(false,
-                AutoHideGeometry.State.Hidden), "non-hover hidden mode keeps its native peek policy");
+            Require(TaskbarTakeover.ShouldIncludePeek(AutoHideGeometry.State.Hidden,
+                false, false, false), "static mode keeps its existing hidden peek");
+            Require(!TaskbarTakeover.ShouldIncludePeek(AutoHideGeometry.State.Hidden,
+                true, false, true), "non-target hover position gets no peek hit target");
+            Require(TaskbarTakeover.ShouldIncludePeek(AutoHideGeometry.State.Hidden,
+                true, true, true), "targeted hover position gets a peek only when inset requires it");
+            Require(!TaskbarTakeover.ShouldIncludePeek(AutoHideGeometry.State.Hidden,
+                true, true, false), "zero-inset target needs no synthetic peek");
+            Require(!TaskbarTakeover.ShouldIncludePeek(AutoHideGeometry.State.Visible,
+                true, true, true), "visible taskbar needs no hidden peek");
             Require(TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, true,
-                AutoHideGeometry.State.Visible), "non-target edge hit is clipped after Explorer's reveal");
-            Require(!TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, true,
-                AutoHideGeometry.State.Hidden), "hidden state hands edge ownership back to Explorer");
+                AutoHideGeometry.State.Visible), "non-target visible state is clipped to empty");
+            Require(TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, true,
+                AutoHideGeometry.State.Hidden), "non-target hidden state cannot reveal the whole bar");
             Require(!TaskbarTakeover.ShouldApplyEmptyHoverRegion(false, true,
                 AutoHideGeometry.State.Visible), "enabled segment is applied under the cursor");
             Require(!TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, false,
                 AutoHideGeometry.State.Visible), "non-hover mode keeps its existing behavior");
 
-            return "PASS: hover hit areas, exclusive edges, peek strip, margins, gaps, missing tray, and native trigger with segment clipping";
+            return "PASS: hover hit areas, exclusive edges, peek gating, margins, gaps, missing tray, and segment-only reveal";
         }
 
         private static void Require(bool condition, string check)

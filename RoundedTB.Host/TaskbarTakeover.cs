@@ -397,21 +397,10 @@ namespace TrayProbe
             input.BarHeight = window.Bottom - window.Top;
             input.Dpi = dpi;
 
-            // In hover mode the hidden edge belongs entirely to Explorer.
-            // Let its native edge hit target reveal the taskbar; do not create
-            // any synthetic peek pixels, even under a hover-enabled segment.
-            if (ShouldHandHiddenHoverRegionToShell(input.ShowSegmentsOnHover, autoHideState))
-            {
-                if (state.Applied || HasWindowRegion(state.Hwnd))
-                {
-                    ClearRegion(state.Hwnd);
-                }
-                state.Applied = false;
-                state.LastSignature = "";
-                state.HasFastKey = false;
-                return;
-            }
-
+            // Hidden hover regions are kept segment-specific. This lets the
+            // native shell reveal the taskbar only when an enabled segment's
+            // own edge pixels are hit; the rest of the edge stays non-targetable.
+            bool edgeHovered = false;
             if (input.ShowSegmentsOnHover)
             {
                 AutoHideGeometry.Rect visible;
@@ -457,6 +446,8 @@ namespace TrayProbe
                     hit.WidgetsRight = visible.Left + Convert.ToInt32(168 * (dpi / 96.0));
                     hit.HasTray = input.HasTray;
                     HoverGeometry.HitResult result = HoverGeometry.Evaluate(hit, cursor.X, cursor.Y);
+                    edgeHovered = HoverGeometry.HasEnabledTarget(result,
+                        input.ShowAppList, input.TrayHoverEnabled);
 
                     input.AppListVisible = input.ShowAppList && result.AppList;
                     input.ShowTray = input.TrayHoverEnabled && result.Tray;
@@ -473,8 +464,8 @@ namespace TrayProbe
             state.HasFastKey = true;
 
             DynamicPlan plan = DynamicGeometry.Build(input, state.Plan);
-            bool includePeek = autoHideState == AutoHideGeometry.State.Hidden
-                && !input.ShowSegmentsOnHover;
+            bool topInset = HasTopInset(input, dpi);
+            bool includePeek = ShouldIncludePeek(autoHideState, input.ShowSegmentsOnHover, edgeHovered, topInset);
             string signature = DynamicSignature(autoHideState, window, plan, includePeek, peek);
             if (state.Applied && signature == state.LastSignature) return;
 
@@ -486,26 +477,9 @@ namespace TrayProbe
                     return;
                 }
 
-                if (autoHideState == AutoHideGeometry.State.Hidden)
-                {
-                    // At rest, let Explorer own the hidden edge hit target. A
-                    // synthetic peek region is visibly rendered as a dark strip
-                    // and has not reliably triggered shell reveal. Clear any
-                    // region left by this or an older host, but never do this
-                    // while the taskbar is transitioning.
-                    if (state.Applied || HasWindowRegion(state.Hwnd))
-                    {
-                        ClearRegion(state.Hwnd);
-                    }
-                    state.Applied = false;
-                    state.LastSignature = signature;
-                    return;
-                }
-
-                // Explorer reveals the full taskbar when any point along the
-                // native screen-edge trigger is hit. In hover mode, clip it back
-                // to nothing when no enabled segment is under the pointer; an
-                // enabled segment follows the normal region-build path below.
+                // Explorer reveals only when an enabled segment contributes
+                // edge pixels. With no hover target, keep the taskbar region
+                // empty instead of handing the whole edge back to Explorer.
                 if (ShouldApplyEmptyHoverRegion(true, input.ShowSegmentsOnHover, autoHideState))
                 {
                     if (ApplyEmpty(state, signature)) return;
@@ -513,9 +487,6 @@ namespace TrayProbe
                     return;
                 }
 
-                if (ApplyEmpty(state, signature)) return;
-                AbortState(state, "cannot apply empty hover region");
-                return;
             }
 
             if (plan.Segments.Count == 0 && includePeek)
@@ -624,16 +595,19 @@ namespace TrayProbe
             return signature.ToString();
         }
 
-        internal static bool ShouldHandHiddenHoverRegionToShell(bool hover,
-            AutoHideGeometry.State autoHideState)
+        internal static bool ShouldIncludePeek(AutoHideGeometry.State autoHideState, bool hover,
+            bool edgeHovered, bool topInset)
         {
-            return hover && autoHideState == AutoHideGeometry.State.Hidden;
+            return autoHideState == AutoHideGeometry.State.Hidden
+                && (!hover || (edgeHovered && topInset));
         }
 
         internal static bool ShouldApplyEmptyHoverRegion(bool noSegments, bool hover,
             AutoHideGeometry.State autoHideState)
         {
-            return noSegments && hover && autoHideState == AutoHideGeometry.State.Visible;
+            return noSegments && hover
+                && (autoHideState == AutoHideGeometry.State.Visible
+                    || autoHideState == AutoHideGeometry.State.Hidden);
         }
 
         private static bool HasWindowRegion(IntPtr hwnd)
