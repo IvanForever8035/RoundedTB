@@ -61,6 +61,7 @@ namespace TrayProbe
         private static bool rebindPending;
         private static DateTime rebindAtUtc;
         private static int rebindAttempts;
+        private static int rebindLimit = 20;
         private static DateTime lastHandleCheckUtc;
         private static bool currentSimpleMode;
         private static int simpleTop, simpleLeft, simpleBottom, simpleRight, simpleRadius;
@@ -385,9 +386,22 @@ namespace TrayProbe
 
             if (!started)
             {
-                Log(baseDir, "TAKEOVER START FAILED: " + TaskbarTakeover.Failure);
-                DestroyWindow(hwnd);
-                return 4;
+                if (ShouldDeferStartup(settingsTakeover, activeSettings != null))
+                {
+                    // At logon or after an Explorer restart the taskbar window
+                    // may not exist yet. Keep the tray host alive and reuse the
+                    // normal rebind path instead of exiting, so startup never
+                    // depends on Explorer finishing first. 120 attempts at
+                    // 500 ms cover roughly one minute.
+                    RequestRebind("startup: taskbar not ready", 120);
+                    Log(baseDir, "TAKEOVER DEFERRED: " + TaskbarTakeover.Failure);
+                }
+                else
+                {
+                    Log(baseDir, "TAKEOVER START FAILED: " + TaskbarTakeover.Failure);
+                    DestroyWindow(hwnd);
+                    return 4;
+                }
             }
 
             takeoverStartedUtc = DateTime.UtcNow;
@@ -651,6 +665,15 @@ namespace TrayProbe
             return live != IntPtr.Zero && live != current;
         }
 
+        /// <summary>
+        /// A settings-driven host started at sign-in must survive a taskbar that
+        /// Explorer has not created yet. Only a missing settings file is fatal.
+        /// </summary>
+        internal static bool ShouldDeferStartup(bool settingsTakeover, bool hasSettings)
+        {
+            return settingsTakeover && hasSettings;
+        }
+
         private static void StartSettingsWatcher(string path)
         {
             try
@@ -787,6 +810,9 @@ namespace TrayProbe
                     {
                         string exe = Process.GetCurrentProcess().MainModule.FileName;
                         key.SetValue(RunValue, "\"" + exe + "\"");
+                        // Record which file will launch at sign-in; a movable
+                        // download/unpack folder is the usual startup surprise.
+                        Log(AppDomain.CurrentDomain.BaseDirectory, "STARTUP path=" + exe);
                     }
                     else
                     {
@@ -861,12 +887,13 @@ namespace TrayProbe
             }
         }
 
-        private static void RequestRebind(string reason)
+        private static void RequestRebind(string reason, int limit = 20)
         {
             if (!takeoverMode) return;
             rebindPending = true;
             rebindAtUtc = DateTime.UtcNow.AddMilliseconds(800);
             rebindAttempts = 0;
+            rebindLimit = limit;
             Log(AppDomain.CurrentDomain.BaseDirectory, "REBIND requested: " + reason);
         }
 
@@ -898,7 +925,7 @@ namespace TrayProbe
             List<IntPtr> found = DiscoverTaskbars();
             if (found.Count == 0)
             {
-                if (rebindAttempts < 20) rebindAtUtc = DateTime.UtcNow.AddMilliseconds(500);
+                if (rebindAttempts < rebindLimit) rebindAtUtc = DateTime.UtcNow.AddMilliseconds(500);
                 else
                 {
                     rebindPending = false;
@@ -931,7 +958,7 @@ namespace TrayProbe
                 Log(AppDomain.CurrentDomain.BaseDirectory, "REBIND success taskbars=" + TaskbarTakeover.Taskbars.Count);
                 TaskbarTakeover.Tick();
             }
-            else if (rebindAttempts < 20)
+            else if (rebindAttempts < rebindLimit)
             {
                 rebindAtUtc = DateTime.UtcNow.AddMilliseconds(500);
             }

@@ -11,7 +11,10 @@ namespace TrayProbe
             Require(!Program.ShouldRebind(new IntPtr(1), IntPtr.Zero, true), "missing live handle waits");
             Require(Program.ShouldRebind(new IntPtr(1), IntPtr.Zero, false), "destroyed current handle rebinds");
             Require(!Program.ShouldRebind(IntPtr.Zero, new IntPtr(2), true), "no current handle does not rebind");
-            return "PASS: rebind policy for changed, same, missing, and destroyed taskbar handles";
+            Require(Program.ShouldDeferStartup(true, true), "settings host defers startup when the taskbar is missing");
+            Require(!Program.ShouldDeferStartup(true, false), "missing settings file is fatal at startup");
+            Require(!Program.ShouldDeferStartup(false, true), "args-driven takeover does not defer startup");
+            return "PASS: rebind policy for changed, same, missing, and destroyed taskbar handles; startup deferral only for a settings host";
         }
 
         private static void Require(bool condition, string check)
