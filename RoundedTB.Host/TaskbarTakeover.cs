@@ -491,13 +491,18 @@ namespace TrayProbe
                     return;
                 }
 
-                // The shell revealed the bar because the cursor touched its
-                // edge. When no enabled segment sits under the cursor, hide the
-                // bar again instead of leaving the whole taskbar on screen. Only
-                // a region that already contains segment pixels is kept, so the
-                // shell can animate the retract.
-                if (ShouldKeepHoverRegion(true, includePeek, true, HasRegionPixels(state.Hwnd)))
+                // No enabled segment is under the cursor. Restore Explorer's
+                // native full-window region while the bar is visible, so native
+                // edge reveal/retract continues to work at every screen-edge
+                // position. Do not synthesize a full-width or tray-only strip.
+                if (ShouldLeaveVisibleTaskbarToShell(true, input.ShowSegmentsOnHover, autoHideState))
                 {
+                    if (state.Applied || HasWindowRegion(state.Hwnd))
+                    {
+                        ClearRegion(state.Hwnd);
+                    }
+                    state.Applied = false;
+                    state.LastSignature = signature;
                     return;
                 }
 
@@ -621,18 +626,10 @@ namespace TrayProbe
             return false;
         }
 
-        internal static bool ShouldKeepHoverRegion(bool noSegments, bool includePeek, bool hover, bool regionHasPixels)
+        internal static bool ShouldLeaveVisibleTaskbarToShell(bool noSegments, bool hover,
+            AutoHideGeometry.State autoHideState)
         {
-            return noSegments && !includePeek && hover && regionHasPixels;
-        }
-
-        private static bool HasRegionPixels(IntPtr hwnd)
-        {
-            IntPtr scratch = CreateRectRgn(0, 0, 0, 0);
-            if (scratch == IntPtr.Zero) return false;
-            int kind = GetWindowRgn(hwnd, scratch);
-            DeleteObject(scratch);
-            return kind > 1; // SIMPLEREGION / COMPLEXREGION: at least one pixel is visible.
+            return noSegments && hover && autoHideState == AutoHideGeometry.State.Visible;
         }
 
         private static bool HasWindowRegion(IntPtr hwnd)

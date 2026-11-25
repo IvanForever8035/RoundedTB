@@ -98,16 +98,16 @@ namespace TrayProbe
             hit = Evaluate(input, 1700, 24);
             Require(!hit.Tray, "no tray window means no tray target");
 
-            Require(TaskbarTakeover.ShouldKeepHoverRegion(true, false, true, true),
-                "applied segment region is kept for the retract animation");
-            Require(!TaskbarTakeover.ShouldKeepHoverRegion(true, false, true, false),
-                "region-less taskbar is hidden instead of staying fully visible");
-            Require(!TaskbarTakeover.ShouldKeepHoverRegion(false, false, true, true),
-                "visible segments are applied normally");
-            Require(!TaskbarTakeover.ShouldKeepHoverRegion(true, true, true, true),
-                "peek regions are still applied when needed");
+            Require(TaskbarTakeover.ShouldLeaveVisibleTaskbarToShell(true, true,
+                AutoHideGeometry.State.Visible), "native reveal remains visible until cursor leaves the taskbar");
+            Require(!TaskbarTakeover.ShouldLeaveVisibleTaskbarToShell(true, true,
+                AutoHideGeometry.State.Hidden), "hidden state returns edge ownership to Explorer");
+            Require(!TaskbarTakeover.ShouldLeaveVisibleTaskbarToShell(false, true,
+                AutoHideGeometry.State.Visible), "enabled segment is applied under the cursor");
+            Require(!TaskbarTakeover.ShouldLeaveVisibleTaskbarToShell(true, false,
+                AutoHideGeometry.State.Visible), "non-hover mode keeps its existing behavior");
 
-            return "PASS: hover hit areas, exclusive edges, peek strip, margins, gaps, missing tray, and region-based retract rule";
+            return "PASS: hover hit areas, exclusive edges, peek strip, margins, gaps, missing tray, and native auto-hide handoff";
         }
 
         private static void Require(bool condition, string check)
