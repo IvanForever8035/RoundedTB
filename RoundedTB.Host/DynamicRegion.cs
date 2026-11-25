@@ -62,11 +62,7 @@ namespace TrayProbe
                 addedPeek = true;
             }
 
-            // A hover-enabled taskbar can have enabled segments without any
-            // segment currently selected. Keep the hidden shell edge hit-testable
-            // in that state too; otherwise a startup with the bar already hidden
-            // can strand it behind an empty region.
-            if (!addedPeek && (!plan.AnyEnabled || plan.Segments.Count == 0)
+            if (!addedPeek && !plan.AnyEnabled
                 && !UnionRect(ref result, peek.Left, peek.Top, peek.Right, peek.Bottom))
             {
                 error = "cannot combine fallback peek strip";
@@ -160,11 +156,8 @@ namespace TrayProbe
                 DynamicPlan zeroMarginHover = DynamicGeometry.Build(input);
                 Require(zeroMarginHover.AnyEnabled && zeroMarginHover.Segments.Count == 0
                     && zeroMarginHover.PeekRanges.Count == 0, "zero-margin hover resting plan");
-                region = Build(zeroMarginHover, true, peek, out error);
-                Require(region != IntPtr.Zero, "build zero-margin hover fallback peek");
-                Require(SetWindowRgn(hwnd, region, false) != 0, "apply zero-margin hover fallback peek");
-                Require(GetWindowRgn(hwnd, scratch) > 1 && PtInRegion(scratch, 1000, 0),
-                    "zero-margin hover keeps a full-width edge hit target");
+                region = Build(zeroMarginHover, false, peek, out error);
+                Require(region == IntPtr.Zero, "hover resting state does not synthesize a visible edge strip");
 
                 input = DynamicSelfTest.BaseInput();
                 input.ShowAppList = false;

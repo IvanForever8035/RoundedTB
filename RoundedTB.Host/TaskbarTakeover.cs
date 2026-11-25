@@ -461,13 +461,8 @@ namespace TrayProbe
 
             DynamicPlan plan = DynamicGeometry.Build(input, state.Plan);
             bool topInset = HasTopInset(input, dpi);
-            // A hidden auto-hide taskbar still needs a hit-testable edge while
-            // hover mode has no segment selected. Without this fallback, a
-            // host started after Explorer has already hidden the bar applies an
-            // empty region and the shell can no longer trigger the reveal.
             bool includePeek = autoHideState == AutoHideGeometry.State.Hidden
-                && (!input.ShowSegmentsOnHover || plan.Segments.Count == 0
-                    || (edgeHovered && topInset));
+                && (!input.ShowSegmentsOnHover || (edgeHovered && topInset));
             string signature = DynamicSignature(autoHideState, window, plan, includePeek, peek);
             if (state.Applied && signature == state.LastSignature) return;
 
@@ -476,6 +471,22 @@ namespace TrayProbe
                 if (!input.ShowSegmentsOnHover)
                 {
                     // Static mode with every segment disabled: keep the taskbar.
+                    return;
+                }
+
+                if (autoHideState == AutoHideGeometry.State.Hidden)
+                {
+                    // At rest, let Explorer own the hidden edge hit target. A
+                    // synthetic peek region is visibly rendered as a dark strip
+                    // and has not reliably triggered shell reveal. Clear any
+                    // region left by this or an older host, but never do this
+                    // while the taskbar is transitioning.
+                    if (state.Applied || HasWindowRegion(state.Hwnd))
+                    {
+                        ClearRegion(state.Hwnd);
+                    }
+                    state.Applied = false;
+                    state.LastSignature = signature;
                     return;
                 }
 
@@ -622,7 +633,16 @@ namespace TrayProbe
             if (scratch == IntPtr.Zero) return false;
             int kind = GetWindowRgn(hwnd, scratch);
             DeleteObject(scratch);
-            return kind == 0;
+            return kind == 1; // NULLREGION: a region exists, but contains no pixels.
+        }
+
+        private static bool HasWindowRegion(IntPtr hwnd)
+        {
+            IntPtr scratch = CreateRectRgn(0, 0, 0, 0);
+            if (scratch == IntPtr.Zero) return false;
+            int kind = GetWindowRgn(hwnd, scratch);
+            DeleteObject(scratch);
+            return kind > 0; // ERROR means the window has no explicit region.
         }
 
         private static void RefreshComposition(IntPtr hwnd)
