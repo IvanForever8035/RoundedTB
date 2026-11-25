@@ -62,7 +62,11 @@ namespace TrayProbe
                 addedPeek = true;
             }
 
-            if (!addedPeek && !plan.AnyEnabled
+            // A hover-enabled taskbar can have enabled segments without any
+            // segment currently selected. Keep the hidden shell edge hit-testable
+            // in that state too; otherwise a startup with the bar already hidden
+            // can strand it behind an empty region.
+            if (!addedPeek && (!plan.AnyEnabled || plan.Segments.Count == 0)
                 && !UnionRect(ref result, peek.Left, peek.Top, peek.Right, peek.Bottom))
             {
                 error = "cannot combine fallback peek strip";
@@ -147,6 +151,22 @@ namespace TrayProbe
                 Require(PtInRegion(scratch, 100, 0) && PtInRegion(scratch, 1700, 0) && !PtInRegion(scratch, 1000, 0),
                     "hover peek strips stay under the enabled ranges");
 
+                input = DynamicSelfTest.BaseInput();
+                input.ShowSegmentsOnHover = true;
+                input.AppListVisible = false;
+                input.ShowTray = false;
+                input.App.MarginTop = 0;
+                input.Tray.MarginTop = 0;
+                DynamicPlan zeroMarginHover = DynamicGeometry.Build(input);
+                Require(zeroMarginHover.AnyEnabled && zeroMarginHover.Segments.Count == 0
+                    && zeroMarginHover.PeekRanges.Count == 0, "zero-margin hover resting plan");
+                region = Build(zeroMarginHover, true, peek, out error);
+                Require(region != IntPtr.Zero, "build zero-margin hover fallback peek");
+                Require(SetWindowRgn(hwnd, region, false) != 0, "apply zero-margin hover fallback peek");
+                Require(GetWindowRgn(hwnd, scratch) > 1 && PtInRegion(scratch, 1000, 0),
+                    "zero-margin hover keeps a full-width edge hit target");
+
+                input = DynamicSelfTest.BaseInput();
                 input.ShowAppList = false;
                 input.ShowTray = false;
                 input.ShowWidgets = false;

@@ -461,8 +461,13 @@ namespace TrayProbe
 
             DynamicPlan plan = DynamicGeometry.Build(input, state.Plan);
             bool topInset = HasTopInset(input, dpi);
+            // A hidden auto-hide taskbar still needs a hit-testable edge while
+            // hover mode has no segment selected. Without this fallback, a
+            // host started after Explorer has already hidden the bar applies an
+            // empty region and the shell can no longer trigger the reveal.
             bool includePeek = autoHideState == AutoHideGeometry.State.Hidden
-                && (!input.ShowSegmentsOnHover || (edgeHovered && topInset));
+                && (!input.ShowSegmentsOnHover || plan.Segments.Count == 0
+                    || (edgeHovered && topInset));
             string signature = DynamicSignature(autoHideState, window, plan, includePeek, peek);
             if (state.Applied && signature == state.LastSignature) return;
 
