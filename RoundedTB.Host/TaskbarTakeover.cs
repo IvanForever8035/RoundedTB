@@ -397,7 +397,21 @@ namespace TrayProbe
             input.BarHeight = window.Bottom - window.Top;
             input.Dpi = dpi;
 
-            bool edgeHovered = false;
+            // In hover mode the hidden edge belongs entirely to Explorer.
+            // Let its native edge hit target reveal the taskbar; do not create
+            // any synthetic peek pixels, even under a hover-enabled segment.
+            if (ShouldHandHiddenHoverRegionToShell(input.ShowSegmentsOnHover, autoHideState))
+            {
+                if (state.Applied || HasWindowRegion(state.Hwnd))
+                {
+                    ClearRegion(state.Hwnd);
+                }
+                state.Applied = false;
+                state.LastSignature = "";
+                state.HasFastKey = false;
+                return;
+            }
+
             if (input.ShowSegmentsOnHover)
             {
                 AutoHideGeometry.Rect visible;
@@ -443,8 +457,6 @@ namespace TrayProbe
                     hit.WidgetsRight = visible.Left + Convert.ToInt32(168 * (dpi / 96.0));
                     hit.HasTray = input.HasTray;
                     HoverGeometry.HitResult result = HoverGeometry.Evaluate(hit, cursor.X, cursor.Y);
-                    edgeHovered = HoverGeometry.HasEnabledTarget(result,
-                        input.ShowAppList, input.TrayHoverEnabled);
 
                     input.AppListVisible = input.ShowAppList && result.AppList;
                     input.ShowTray = input.TrayHoverEnabled && result.Tray;
@@ -461,9 +473,8 @@ namespace TrayProbe
             state.HasFastKey = true;
 
             DynamicPlan plan = DynamicGeometry.Build(input, state.Plan);
-            bool topInset = HasTopInset(input, dpi);
             bool includePeek = autoHideState == AutoHideGeometry.State.Hidden
-                && (!input.ShowSegmentsOnHover || (edgeHovered && topInset));
+                && !input.ShowSegmentsOnHover;
             string signature = DynamicSignature(autoHideState, window, plan, includePeek, peek);
             if (state.Applied && signature == state.LastSignature) return;
 
@@ -491,18 +502,14 @@ namespace TrayProbe
                     return;
                 }
 
-                // No enabled segment is under the cursor. Restore Explorer's
-                // native full-window region while the bar is visible, so native
-                // edge reveal/retract continues to work at every screen-edge
-                // position. Do not synthesize a full-width or tray-only strip.
-                if (ShouldLeaveVisibleTaskbarToShell(true, input.ShowSegmentsOnHover, autoHideState))
+                // Explorer reveals the full taskbar when any point along the
+                // native screen-edge trigger is hit. In hover mode, clip it back
+                // to nothing when no enabled segment is under the pointer; an
+                // enabled segment follows the normal region-build path below.
+                if (ShouldApplyEmptyHoverRegion(true, input.ShowSegmentsOnHover, autoHideState))
                 {
-                    if (state.Applied || HasWindowRegion(state.Hwnd))
-                    {
-                        ClearRegion(state.Hwnd);
-                    }
-                    state.Applied = false;
-                    state.LastSignature = signature;
+                    if (ApplyEmpty(state, signature)) return;
+                    AbortState(state, "cannot apply empty hover region");
                     return;
                 }
 
@@ -617,16 +624,13 @@ namespace TrayProbe
             return signature.ToString();
         }
 
-        private static bool HasTopInset(DynamicInput input, uint dpi)
+        internal static bool ShouldHandHiddenHoverRegionToShell(bool hover,
+            AutoHideGeometry.State autoHideState)
         {
-            double scale = dpi / 96.0;
-            if (input.ShowAppList && Convert.ToInt32(input.App.MarginTop * scale) > 0) return true;
-            if ((input.TrayHoverEnabled || input.ShowTray) && Convert.ToInt32(input.Tray.MarginTop * scale) > 0) return true;
-            if (input.ShowWidgets && Convert.ToInt32(input.Widgets.MarginTop * scale) > 0) return true;
-            return false;
+            return hover && autoHideState == AutoHideGeometry.State.Hidden;
         }
 
-        internal static bool ShouldLeaveVisibleTaskbarToShell(bool noSegments, bool hover,
+        internal static bool ShouldApplyEmptyHoverRegion(bool noSegments, bool hover,
             AutoHideGeometry.State autoHideState)
         {
             return noSegments && hover && autoHideState == AutoHideGeometry.State.Visible;

@@ -140,12 +140,8 @@ namespace TrayProbe
                 input.ShowTray = false;
                 DynamicPlan hover = DynamicGeometry.Build(input);
                 Require(hover.Segments.Count == 0 && hover.PeekRanges.Count > 0, "hover resting plan");
-                region = Build(hover, true, peek, out error);
-                Require(region != IntPtr.Zero, "build hover peek region");
-                Require(SetWindowRgn(hwnd, region, false) != 0, "apply hover peek region");
-                Require(GetWindowRgn(hwnd, scratch) > 1, "read back hover peek region");
-                Require(PtInRegion(scratch, 100, 0) && PtInRegion(scratch, 1700, 0) && !PtInRegion(scratch, 1000, 0),
-                    "hover peek strips stay under the enabled ranges");
+                region = Build(hover, false, peek, out error);
+                Require(region == IntPtr.Zero, "hover resting does not synthesize a custom edge strip");
 
                 input = DynamicSelfTest.BaseInput();
                 input.ShowSegmentsOnHover = true;

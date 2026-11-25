@@ -98,16 +98,22 @@ namespace TrayProbe
             hit = Evaluate(input, 1700, 24);
             Require(!hit.Tray, "no tray window means no tray target");
 
-            Require(TaskbarTakeover.ShouldLeaveVisibleTaskbarToShell(true, true,
-                AutoHideGeometry.State.Visible), "native reveal remains visible until cursor leaves the taskbar");
-            Require(!TaskbarTakeover.ShouldLeaveVisibleTaskbarToShell(true, true,
-                AutoHideGeometry.State.Hidden), "hidden state returns edge ownership to Explorer");
-            Require(!TaskbarTakeover.ShouldLeaveVisibleTaskbarToShell(false, true,
+            Require(TaskbarTakeover.ShouldHandHiddenHoverRegionToShell(true,
+                AutoHideGeometry.State.Hidden), "hidden hover state hands the native edge to Explorer");
+            Require(!TaskbarTakeover.ShouldHandHiddenHoverRegionToShell(true,
+                AutoHideGeometry.State.Visible), "visible hover state remains under segment clipping");
+            Require(!TaskbarTakeover.ShouldHandHiddenHoverRegionToShell(false,
+                AutoHideGeometry.State.Hidden), "non-hover hidden mode keeps its native peek policy");
+            Require(TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, true,
+                AutoHideGeometry.State.Visible), "non-target edge hit is clipped after Explorer's reveal");
+            Require(!TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, true,
+                AutoHideGeometry.State.Hidden), "hidden state hands edge ownership back to Explorer");
+            Require(!TaskbarTakeover.ShouldApplyEmptyHoverRegion(false, true,
                 AutoHideGeometry.State.Visible), "enabled segment is applied under the cursor");
-            Require(!TaskbarTakeover.ShouldLeaveVisibleTaskbarToShell(true, false,
+            Require(!TaskbarTakeover.ShouldApplyEmptyHoverRegion(true, false,
                 AutoHideGeometry.State.Visible), "non-hover mode keeps its existing behavior");
 
-            return "PASS: hover hit areas, exclusive edges, peek strip, margins, gaps, missing tray, and native auto-hide handoff";
+            return "PASS: hover hit areas, exclusive edges, peek strip, margins, gaps, missing tray, and native trigger with segment clipping";
         }
 
         private static void Require(bool condition, string check)
