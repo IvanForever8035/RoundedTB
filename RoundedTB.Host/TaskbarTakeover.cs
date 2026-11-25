@@ -443,9 +443,10 @@ namespace TrayProbe
                     hit.WidgetsRight = visible.Left + Convert.ToInt32(168 * (dpi / 96.0));
                     hit.HasTray = input.HasTray;
                     HoverGeometry.HitResult result = HoverGeometry.Evaluate(hit, cursor.X, cursor.Y);
-                    edgeHovered = result.AppList || result.Tray || result.Widgets;
+                    edgeHovered = HoverGeometry.HasEnabledTarget(result,
+                        input.ShowAppList, input.TrayHoverEnabled);
 
-                    input.AppListVisible = result.AppList;
+                    input.AppListVisible = input.ShowAppList && result.AppList;
                     input.ShowTray = input.TrayHoverEnabled && result.Tray;
                     if (input.ShowAppList)
                     {

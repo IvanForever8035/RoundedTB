@@ -42,6 +42,12 @@ namespace TrayProbe
             return result;
         }
 
+        internal static bool HasEnabledTarget(HitResult result, bool showAppList, bool trayHoverEnabled)
+        {
+            return (showAppList && (result.AppList || result.Widgets))
+                || (trayHoverEnabled && result.Tray);
+        }
+
         internal static string Run()
         {
             HitInput input = new HitInput();
@@ -56,12 +62,16 @@ namespace TrayProbe
 
             HitResult hit = Evaluate(input, 200, 24);
             Require(hit.AppList && !hit.Tray && !hit.Widgets, "app-only hover");
+            Require(!HasEnabledTarget(hit, false, true), "disabled app list does not trigger hover");
+            Require(HasEnabledTarget(hit, true, true), "enabled app list triggers hover");
             hit = Evaluate(input, 100, 24);
             Require(hit.AppList && hit.Widgets && !hit.Tray, "app and widgets overlap on hover");
             hit = Evaluate(input, 1000, 24);
             Require(!hit.AppList && !hit.Tray && !hit.Widgets, "gap has no hover target");
             hit = Evaluate(input, 1700, 24);
             Require(!hit.AppList && hit.Tray && !hit.Widgets, "tray hover");
+            Require(HasEnabledTarget(hit, false, true), "tray remains independently hoverable when app list is disabled");
+            Require(!HasEnabledTarget(hit, false, false), "disabled tray hover does not trigger");
             HitInput belowStrip = input;
             belowStrip.Bottom = 2;
             hit = Evaluate(belowStrip, 100, 3);
