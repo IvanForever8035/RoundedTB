@@ -430,6 +430,7 @@ namespace TrayProbe
             if (takeoverMode) TaskbarTakeover.Tick();
             else Measure(baseDir);
             if (takeoverMode) RequestAutoHideAlign("startup");
+            if (takeoverMode) RequestAppMeasure();
 
             MSG msg;
             while (GetMessage(out msg, IntPtr.Zero, 0, 0) > 0)
@@ -779,6 +780,7 @@ namespace TrayProbe
 
             TaskbarTakeover.Tick();
             RequestAutoHideAlign("settings reload");
+            RequestAppMeasure();
             Log(AppDomain.CurrentDomain.BaseDirectory, "SETTINGS reloaded dynamic=" + loaded.IsDynamic
                 + " taskbars=" + taskbars.Count
                 + " showApp=" + (loaded.ShowAppList ?? true) + " trayHover=" + (loaded.TrayHoverEnabled ?? true));
@@ -850,10 +852,13 @@ namespace TrayProbe
         private static void RequestAppMeasure()
         {
             if (!takeoverMode || activeSettings == null || !activeSettings.IsDynamic
-                || !(activeSettings.ShowAppList ?? true))
+                || (!(activeSettings.ShowAppList ?? true)
+                    && !(activeSettings.ShowSegmentsOnHover
+                        ? (activeSettings.TrayHoverEnabled ?? true) : activeSettings.ShowTray)))
             {
                 return;
             }
+            if (appMeasurePending) return;
             appMeasurePending = true;
             appMeasureAtUtc = DateTime.UtcNow.AddMilliseconds(500);
         }
@@ -863,19 +868,47 @@ namespace TrayProbe
             if (!appMeasurePending || DateTime.UtcNow < appMeasureAtUtc) return;
             appMeasurePending = false;
             if (!takeoverMode || activeSettings == null || !activeSettings.IsDynamic
-                || !(activeSettings.ShowAppList ?? true))
+                || (!(activeSettings.ShowAppList ?? true)
+                    && !(activeSettings.ShowSegmentsOnHover
+                        ? (activeSettings.TrayHoverEnabled ?? true) : activeSettings.ShowTray)))
             {
                 return;
             }
 
+            bool wantsAppList = activeSettings.ShowAppList ?? true;
+            bool wantsTray = activeSettings.ShowSegmentsOnHover
+                ? (activeSettings.TrayHoverEnabled ?? true) : activeSettings.ShowTray;
             bool changed = false;
+            bool retry = false;
             foreach (TaskbarEntry entry in taskbars)
             {
-                int right = MeasureAppListRight(entry.Hwnd);
-                if (right <= 0 || right == entry.AppListRight) continue;
-                entry.AppListRight = right;
-                changed = true;
-                if (activeSettings.IsDynamic)
+                bool entryChanged = false;
+                if (wantsAppList)
+                {
+                    int right = MeasureAppListRight(entry.Hwnd);
+                    if (right > 0 && right != entry.AppListRight)
+                    {
+                        entry.AppListRight = right;
+                        changed = true;
+                        entryChanged = true;
+                    }
+                    if (right <= 0) retry = true;
+                }
+
+                if (wantsTray)
+                {
+                    int trayLeft = MeasureTrayLeft(entry.Hwnd);
+                    if (trayLeft > 0 && trayLeft != entry.TrayLeft)
+                    {
+                        entry.TrayLeft = trayLeft;
+                        entry.HasTray = true;
+                        changed = true;
+                        entryChanged = true;
+                    }
+                    if (trayLeft <= 0) retry = true;
+                }
+
+                if (entryChanged && activeSettings.IsDynamic)
                 {
                     TaskbarTakeover.Rebind(entry.Hwnd, BuildTemplate(entry));
                 }
@@ -883,7 +916,12 @@ namespace TrayProbe
             if (changed)
             {
                 TaskbarTakeover.Tick();
-                Log(AppDomain.CurrentDomain.BaseDirectory, "APP RIGHT updated across " + taskbars.Count + " taskbar(s)");
+                Log(AppDomain.CurrentDomain.BaseDirectory, "TASKBAR geometry updated across " + taskbars.Count + " taskbar(s)");
+            }
+            if (retry)
+            {
+                appMeasurePending = true;
+                appMeasureAtUtc = DateTime.UtcNow.AddSeconds(2);
             }
         }
 
@@ -957,6 +995,7 @@ namespace TrayProbe
                 rebindPending = false;
                 Log(AppDomain.CurrentDomain.BaseDirectory, "REBIND success taskbars=" + TaskbarTakeover.Taskbars.Count);
                 TaskbarTakeover.Tick();
+                if (activeSettings != null) RequestAppMeasure();
             }
             else if (rebindAttempts < rebindLimit)
             {
