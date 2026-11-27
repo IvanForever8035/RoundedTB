@@ -26,6 +26,12 @@ namespace TrayProbe
                 "no enabled target needs no geometry");
             Require(Program.IsGeometrySatisfied(false, true, true, 0, 1618),
                 "tray-only readiness ignores app geometry");
+            Require(Program.ChooseTrayLeft(0, 0, 1618, 1920) == 1618,
+                "zero-width hidden tray window falls back to UIA bounds");
+            Require(Program.ChooseTrayLeft(1600, 1920, 1618, 1880) == 1600,
+                "valid legacy tray bounds take precedence over UIA");
+            Require(Program.ChooseTrayLeft(0, 0, 0, 0) == 0,
+                "tray remains unmeasured when both sources are empty");
             Require(Program.StartupCommandTargetsCurrentExe("\"D:\\Stable\\RoundedTBHost.exe\"",
                 "D:\\Stable\\RoundedTBHost.exe"), "quoted startup path matches the current exe");
             Require(!Program.StartupCommandTargetsCurrentExe("\"D:\\Stable\\RoundedTBHost.exe\"",

@@ -1560,11 +1560,31 @@ namespace TrayProbe
             return right;
         }
 
+        internal static int ChooseTrayLeft(int legacyLeft, int legacyRight, int uiaLeft, int uiaRight)
+        {
+            if (legacyRight > legacyLeft && legacyLeft != 0) return legacyLeft;
+            return uiaRight > uiaLeft && uiaLeft != 0 ? uiaLeft : 0;
+        }
+
         private static int MeasureTrayLeft(IntPtr taskbarWindow)
         {
             IntPtr tray = FindWindowEx(taskbarWindow, IntPtr.Zero, "TrayNotifyWnd", null);
-            RECT trayRect;
-            return tray != IntPtr.Zero && GetWindowRect(tray, out trayRect) ? trayRect.Left : 0;
+            RECT trayRect = new RECT();
+            if (tray != IntPtr.Zero) GetWindowRect(tray, out trayRect);
+
+            RECT uiaTray = new RECT();
+            bool haveUiaTray = false;
+            if (trayRect.Right <= trayRect.Left)
+            {
+                // On Windows 11 auto-hide, TrayNotifyWnd can report a zero-width
+                // rectangle while Explorer has slid the taskbar off screen. UIA's
+                // tray items retain their screen-space bounds in that state.
+                IntPtr bridge = FindWindowEx(taskbarWindow, IntPtr.Zero,
+                    "Windows.UI.Composition.DesktopWindowContentBridge", null);
+                haveUiaTray = bridge != IntPtr.Zero && ReadTrayRect(bridge, out uiaTray);
+            }
+            return ChooseTrayLeft(trayRect.Left, trayRect.Right,
+                haveUiaTray ? uiaTray.Left : 0, haveUiaTray ? uiaTray.Right : 0);
         }
 
         private static bool ReadTrayRect(IntPtr bridge, out RECT rect)
