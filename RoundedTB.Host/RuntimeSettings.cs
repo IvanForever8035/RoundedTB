@@ -86,6 +86,10 @@ namespace TrayProbe
             input.ShowSegmentsOnHover = ShowSegmentsOnHover;
             input.AppListVisible = !ShowSegmentsOnHover;
             input.TrayHoverEnabled = TrayHoverEnabled ?? true;
+            bool appNeeded = input.ShowAppList;
+            bool trayNeeded = ShowSegmentsOnHover ? input.TrayHoverEnabled : ShowTray;
+            input.GeometryReady = (!appNeeded || appListRight > 0)
+                && (!trayNeeded || (hasTray && trayLeft != 0));
             input.App = App;
             input.Tray = Tray;
             input.Widgets = Widgets;

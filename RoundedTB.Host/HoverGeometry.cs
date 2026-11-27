@@ -48,6 +48,16 @@ namespace TrayProbe
                 || (trayHoverEnabled && result.Tray);
         }
 
+        /// <summary>
+        /// Hover mode with an enabled target whose window geometry is still
+        /// unknown keeps Explorer's native edge instead of applying an empty
+        /// region. Preferring a working reveal over a partial mask.
+        /// </summary>
+        internal static bool ShouldUseNativeEdgeFallback(bool hover, bool geometryReady)
+        {
+            return hover && !geometryReady;
+        }
+
         internal static string Run()
         {
             HitInput input = new HitInput();
@@ -100,6 +110,12 @@ namespace TrayProbe
 
             Require(TaskbarTakeover.ShouldIncludePeek(AutoHideGeometry.State.Hidden,
                 false, false, false), "static mode keeps its existing hidden peek");
+            Require(ShouldUseNativeEdgeFallback(true, false),
+                "unmeasured target geometry keeps the native edge reachable");
+            Require(!ShouldUseNativeEdgeFallback(true, true),
+                "measured geometry uses the segment regions");
+            Require(!ShouldUseNativeEdgeFallback(false, false),
+                "non-hover mode keeps its existing behavior");
             Require(!TaskbarTakeover.ShouldIncludePeek(AutoHideGeometry.State.Hidden,
                 true, false, true), "non-target hover position gets no peek hit target");
             Require(TaskbarTakeover.ShouldIncludePeek(AutoHideGeometry.State.Hidden,

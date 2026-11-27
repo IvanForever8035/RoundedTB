@@ -29,6 +29,11 @@ namespace TrayProbe
         internal bool ShowSegmentsOnHover;
         internal bool AppListVisible;
         internal bool TrayHoverEnabled;
+        /// <summary>
+        /// True when every enabled hover target has measured geometry. While
+        /// false the host must not lock the hidden edge with an empty region.
+        /// </summary>
+        internal bool GeometryReady;
         internal SegmentLayout App;
         internal SegmentLayout Tray;
         internal SegmentLayout Widgets;

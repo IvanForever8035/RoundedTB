@@ -14,7 +14,19 @@ namespace TrayProbe
             Require(Program.ShouldDeferStartup(true, true), "settings host defers startup when the taskbar is missing");
             Require(!Program.ShouldDeferStartup(true, false), "missing settings file is fatal at startup");
             Require(!Program.ShouldDeferStartup(false, true), "args-driven takeover does not defer startup");
-            return "PASS: rebind policy for changed, same, missing, and destroyed taskbar handles; startup deferral only for a settings host";
+            Require(Program.IsGeometrySatisfied(true, true, true, 451, 1618),
+                "measured app and tray geometry satisfies both targets");
+            Require(!Program.IsGeometrySatisfied(true, true, true, 451, 0),
+                "missing tray geometry blocks readiness");
+            Require(!Program.IsGeometrySatisfied(true, true, true, 0, 1618),
+                "missing app geometry blocks readiness");
+            Require(!Program.IsGeometrySatisfied(true, false, false, 0, 0),
+                "missing taskbar blocks readiness");
+            Require(Program.IsGeometrySatisfied(false, false, false, 0, 0),
+                "no enabled target needs no geometry");
+            Require(Program.IsGeometrySatisfied(false, true, true, 0, 1618),
+                "tray-only readiness ignores app geometry");
+            return "PASS: rebind policy, startup deferral, and geometry readiness gating";
         }
 
         private static void Require(bool condition, string check)

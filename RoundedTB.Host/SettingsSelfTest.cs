@@ -31,6 +31,13 @@ namespace TrayProbe
                 "dynamic input from settings");
             Require(input.App.CornerRadius == 6 && input.Tray.MarginTop == 12 && input.Widgets.MarginRight == 20,
                 "layouts copied to dynamic input");
+            Require(input.GeometryReady, "tray-only hover is ready once tray geometry is measured");
+            Require(!settings.ToDynamicInput(451, 0, false).GeometryReady,
+                "tray-only hover waits for the tray geometry");
+            settings.ShowAppList = true;
+            Require(!settings.ToDynamicInput(0, 1618, true).GeometryReady,
+                "enabled app list waits for the app geometry");
+            settings.ShowAppList = false;
 
             settings.ToggleTray();
             Require(settings.TrayHoverEnabled == false, "hover tray toggle disables hover");

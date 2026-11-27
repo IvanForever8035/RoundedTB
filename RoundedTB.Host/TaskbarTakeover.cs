@@ -23,6 +23,8 @@ namespace TrayProbe
             internal readonly DynamicPlan Plan = new DynamicPlan();
             internal AutoHideGeometry.Rect MonitorBounds;
             internal DockEdge Edge;
+            internal AutoHideGeometry.State LastState;
+            internal string LastAction = "";
         }
 
         private static readonly Dictionary<IntPtr, TaskbarState> States = new Dictionary<IntPtr, TaskbarState>();
@@ -208,6 +210,18 @@ namespace TrayProbe
             return States.ContainsKey(hwnd);
         }
 
+        internal static string DescribeState(IntPtr hwnd)
+        {
+            TaskbarState state;
+            return States.TryGetValue(hwnd, out state) ? state.LastState.ToString() : "n/a";
+        }
+
+        internal static string DescribeAction(IntPtr hwnd)
+        {
+            TaskbarState state;
+            return States.TryGetValue(hwnd, out state) ? state.LastAction : "";
+        }
+
         internal static IntPtr CurrentTaskbar
         {
             get { return Order.Count > 0 ? Order[0] : IntPtr.Zero; }
@@ -248,6 +262,7 @@ namespace TrayProbe
             AutoHideGeometry.Peek peek;
             AutoHideGeometry.State autoHideState = AutoHideGeometry.Classify(
                 ToGeometryRect(window), monitorRect, dpi, out peek);
+            state.LastState = autoHideState;
             if (autoHideState == AutoHideGeometry.State.Transitioning || autoHideState == AutoHideGeometry.State.OffScreen)
             {
                 // Re-applying mid-animation makes the shell snap to the end.
@@ -325,6 +340,7 @@ namespace TrayProbe
 
             state.Applied = true;
             state.LastSignature = signature;
+            state.LastAction = "simple";
             AppliedCount++;
             LastAppliedSignature = signature;
             RefreshComposition(hwnd);
@@ -379,6 +395,7 @@ namespace TrayProbe
             {
                 state.Applied = true;
                 state.LastSignature = signature;
+                state.LastAction = "empty";
                 AppliedCount++;
                 LastAppliedSignature = signature;
                 RefreshComposition(state.Hwnd);
@@ -396,6 +413,22 @@ namespace TrayProbe
             input.BarWidth = window.Right - window.Left;
             input.BarHeight = window.Bottom - window.Top;
             input.Dpi = dpi;
+
+            // An enabled target whose window geometry has not been measured yet
+            // must not lock the hidden edge behind an empty region: hand the
+            // native edge back to Explorer until the measurement succeeds.
+            if (HoverGeometry.ShouldUseNativeEdgeFallback(input.ShowSegmentsOnHover, input.GeometryReady))
+            {
+                if (state.Applied || HasWindowRegion(state.Hwnd))
+                {
+                    ClearRegion(state.Hwnd);
+                }
+                state.Applied = false;
+                state.LastSignature = "";
+                state.HasFastKey = false;
+                state.LastAction = "native-fallback";
+                return;
+            }
 
             // Hidden hover regions are kept segment-specific. This lets the
             // native shell reveal the taskbar only when an enabled segment's
@@ -474,6 +507,7 @@ namespace TrayProbe
                 if (!input.ShowSegmentsOnHover)
                 {
                     // Static mode with every segment disabled: keep the taskbar.
+                    state.LastAction = "static-keep";
                     return;
                 }
 
@@ -490,6 +524,7 @@ namespace TrayProbe
                 if (ShouldKeepVisibleHoverRegionForRetraction(true, input.ShowSegmentsOnHover, autoHideState))
                 {
                     state.LastSignature = signature;
+                    state.LastAction = "keep";
                     return;
                 }
             }
@@ -516,6 +551,7 @@ namespace TrayProbe
 
                 state.Applied = true;
                 state.LastSignature = signature;
+                state.LastAction = "peek";
                 AppliedCount++;
                 LastAppliedSignature = signature;
                 RefreshComposition(state.Hwnd);
@@ -539,6 +575,7 @@ namespace TrayProbe
 
             state.Applied = true;
             state.LastSignature = signature;
+            state.LastAction = includePeek ? "segments+peek" : "segments";
             AppliedCount++;
             LastAppliedSignature = signature;
             RefreshComposition(state.Hwnd);

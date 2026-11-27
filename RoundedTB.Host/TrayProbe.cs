@@ -69,6 +69,10 @@ namespace TrayProbe
         private static int shellHookMessage;
         private static bool appMeasurePending;
         private static DateTime appMeasureAtUtc;
+        private static DateTime measureRefreshUntilUtc;
+        private static bool geometryReadyLogged;
+        private static bool geometryPendingLogged;
+        private static readonly Dictionary<IntPtr, string> lastRegionActions = new Dictionary<IntPtr, string>();
         private static string settingsExePath;
         private static FileSystemWatcher settingsWatcher;
         private static readonly object settingsLock = new object();
@@ -355,6 +359,7 @@ namespace TrayProbe
                 template.ShowSegmentsOnHover = ParseIntArg(args, "/hover:", 0) != 0;
                 template.AppListVisible = ParseIntArg(args, "/appVisible:", 1) != 0;
                 template.TrayHoverEnabled = ParseIntArg(args, "/trayHover:", 0) != 0;
+                template.GeometryReady = true;
                 template.App = ParseLayout(args, "/app:", Layout(18, 4, 4, 0, 4));
                 template.Tray = ParseLayout(args, "/tray:", Layout(18, 4, 4, 0, 4));
                 template.Widgets = ParseLayout(args, "/widgets:", Layout(18, 4, 4, 0, 4));
@@ -431,6 +436,7 @@ namespace TrayProbe
             else Measure(baseDir);
             if (takeoverMode) RequestAutoHideAlign("startup");
             if (takeoverMode) RequestAppMeasure();
+            if (takeoverMode) LogStartupContext(baseDir);
 
             MSG msg;
             while (GetMessage(out msg, IntPtr.Zero, 0, 0) > 0)
@@ -457,12 +463,18 @@ namespace TrayProbe
             return result;
         }
 
-        private static TaskbarEntry MeasureEntry(IntPtr hwnd)
+        private static TaskbarEntry MeasureEntry(IntPtr hwnd, TaskbarEntry previous)
         {
             TaskbarEntry entry = new TaskbarEntry();
             entry.Hwnd = hwnd;
-            entry.AppListRight = MeasureAppListRight(hwnd);
-            entry.TrayLeft = MeasureTrayLeft(hwnd);
+            int appListRight = MeasureAppListRight(hwnd);
+            int trayLeft = MeasureTrayLeft(hwnd);
+            // A failed measurement at startup (Explorer still creating its
+            // windows) must not discard geometry measured earlier.
+            entry.AppListRight = appListRight > 0 ? appListRight
+                : (previous != null ? previous.AppListRight : 0);
+            entry.TrayLeft = trayLeft > 0 ? trayLeft
+                : (previous != null ? previous.TrayLeft : 0);
             entry.HasTray = entry.TrayLeft != 0;
             return entry;
         }
@@ -480,9 +492,11 @@ namespace TrayProbe
             List<IntPtr> discovered = DiscoverTaskbars();
 
             Dictionary<IntPtr, AutoHideRecord> records = new Dictionary<IntPtr, AutoHideRecord>();
+            Dictionary<IntPtr, TaskbarEntry> previousEntries = new Dictionary<IntPtr, TaskbarEntry>();
             foreach (TaskbarEntry existingEntry in taskbars)
             {
                 if (existingEntry.AutoHide != null) records[existingEntry.Hwnd] = existingEntry.AutoHide;
+                previousEntries[existingEntry.Hwnd] = existingEntry;
             }
 
             List<IntPtr> existing = TaskbarTakeover.Taskbars;
@@ -495,7 +509,9 @@ namespace TrayProbe
             bool any = false;
             foreach (IntPtr hwnd in discovered)
             {
-                TaskbarEntry entry = MeasureEntry(hwnd);
+                TaskbarEntry previousEntry;
+                previousEntries.TryGetValue(hwnd, out previousEntry);
+                TaskbarEntry entry = MeasureEntry(hwnd, previousEntry);
                 AutoHideRecord previousRecord;
                 entry.AutoHide = records.TryGetValue(hwnd, out previousRecord) ? previousRecord : new AutoHideRecord();
                 taskbars.Add(entry);
@@ -837,7 +853,11 @@ namespace TrayProbe
             }
             try
             {
-                Process.Start(new ProcessStartInfo(settingsExePath, "--settings-only")
+                // The settings process closes itself when this host exits, so
+                // exiting from the tray does not leave an orphan settings window.
+                int hostPid = Process.GetCurrentProcess().Id;
+                Process.Start(new ProcessStartInfo(settingsExePath,
+                    "--settings-only --host-pid " + hostPid)
                 {
                     UseShellExecute = true
                 });
@@ -861,6 +881,55 @@ namespace TrayProbe
             if (appMeasurePending) return;
             appMeasurePending = true;
             appMeasureAtUtc = DateTime.UtcNow.AddMilliseconds(500);
+            // Explorer builds its taskbar children over the first minute after
+            // sign-in. Keep a bounded refresh window so a late or rebuilt tray
+            // window is picked up without a permanent polling watchdog.
+            measureRefreshUntilUtc = DateTime.UtcNow.AddSeconds(60);
+        }
+
+        private static bool WantsAppListGeometry()
+        {
+            return activeSettings != null && activeSettings.IsDynamic
+                && (activeSettings.ShowAppList ?? true);
+        }
+
+        private static bool WantsTrayGeometry()
+        {
+            return activeSettings != null && activeSettings.IsDynamic
+                && (activeSettings.ShowSegmentsOnHover
+                    ? (activeSettings.TrayHoverEnabled ?? true) : activeSettings.ShowTray);
+        }
+
+        /// <summary>
+        /// Every enabled hover target must have measured window geometry before
+        /// the host may apply an empty region to a hidden taskbar.
+        /// </summary>
+        internal static bool IsGeometrySatisfied(bool wantsApp, bool wantsTray, bool hasTaskbar,
+            int appRight, int trayLeft)
+        {
+            if (!wantsApp && !wantsTray) return true;
+            if (!hasTaskbar) return false;
+            if (wantsApp && appRight <= 0) return false;
+            if (wantsTray && trayLeft <= 0) return false;
+            return true;
+        }
+
+        internal static bool GeometryReady()
+        {
+            if (activeSettings == null) return false;
+            if (!activeSettings.IsDynamic) return true;
+            bool wantsApp = WantsAppListGeometry();
+            bool wantsTray = WantsTrayGeometry();
+            if (!wantsApp && !wantsTray) return true;
+            if (taskbars.Count == 0) return false;
+            foreach (TaskbarEntry entry in taskbars)
+            {
+                if (!IsGeometrySatisfied(wantsApp, wantsTray, true, entry.AppListRight, entry.TrayLeft))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static void MeasureAppTick()
@@ -875,9 +944,8 @@ namespace TrayProbe
                 return;
             }
 
-            bool wantsAppList = activeSettings.ShowAppList ?? true;
-            bool wantsTray = activeSettings.ShowSegmentsOnHover
-                ? (activeSettings.TrayHoverEnabled ?? true) : activeSettings.ShowTray;
+            bool wantsAppList = WantsAppListGeometry();
+            bool wantsTray = WantsTrayGeometry();
             bool changed = false;
             bool retry = false;
             foreach (TaskbarEntry entry in taskbars)
@@ -918,10 +986,80 @@ namespace TrayProbe
                 TaskbarTakeover.Tick();
                 Log(AppDomain.CurrentDomain.BaseDirectory, "TASKBAR geometry updated across " + taskbars.Count + " taskbar(s)");
             }
+
+            bool ready = GeometryReady();
+            if (ready && !geometryReadyLogged)
+            {
+                geometryReadyLogged = true;
+                geometryPendingLogged = false;
+                Log(AppDomain.CurrentDomain.BaseDirectory, "GEOMETRY ready " + DescribeGeometry());
+                TaskbarTakeover.Tick();
+                RequestAutoHideAlign("geometry ready");
+            }
+            else if (!ready && !geometryPendingLogged)
+            {
+                geometryPendingLogged = true;
+                geometryReadyLogged = false;
+                Log(AppDomain.CurrentDomain.BaseDirectory, "GEOMETRY pending " + DescribeGeometry());
+            }
+
             if (retry)
             {
                 appMeasurePending = true;
                 appMeasureAtUtc = DateTime.UtcNow.AddSeconds(2);
+            }
+            else if (DateTime.UtcNow < measureRefreshUntilUtc)
+            {
+                appMeasurePending = true;
+                appMeasureAtUtc = DateTime.UtcNow.AddSeconds(10);
+            }
+        }
+
+        private static string DescribeGeometry()
+        {
+            if (taskbars.Count == 0) return "taskbars=0";
+            TaskbarEntry entry = taskbars[0];
+            return "appRight=" + entry.AppListRight + " trayLeft=" + entry.TrayLeft
+                + " hasTray=" + entry.HasTray + " ready=" + GeometryReady();
+        }
+
+        /// <summary>
+        /// Logs a region decision only when it changes, so a 100 ms hover tick
+        /// does not flood the log while making state transitions traceable.
+        /// </summary>
+        private static void LogRegionActions()
+        {
+            foreach (TaskbarEntry entry in taskbars)
+            {
+                string action = TaskbarTakeover.DescribeAction(entry.Hwnd);
+                if (action.Length == 0) continue;
+                string previous;
+                if (lastRegionActions.TryGetValue(entry.Hwnd, out previous) && previous == action) continue;
+                lastRegionActions[entry.Hwnd] = action;
+                Log(AppDomain.CurrentDomain.BaseDirectory, "REGION action=" + action
+                    + " state=" + TaskbarTakeover.DescribeState(entry.Hwnd));
+            }
+        }
+
+        /// <summary>
+        /// One line per process start: enough to compare a cold boot with a
+        /// restart after the fact, without logging on every tick.
+        /// </summary>
+        private static void LogStartupContext(string baseDir)
+        {
+            try
+            {
+                string state = taskbars.Count > 0 ? TaskbarTakeover.DescribeState(taskbars[0].Hwnd) : "n/a";
+                Log(baseDir, string.Format(
+                    "STARTUP context uptimeMs={0} session={1} classify={2} {3} hover={4} showApp={5} trayHover={6} autoHide={7}",
+                    GetTickCount64(), Process.GetCurrentProcess().SessionId, state, DescribeGeometry(),
+                    activeSettings != null && activeSettings.ShowSegmentsOnHover,
+                    activeSettings != null && (activeSettings.ShowAppList ?? true),
+                    activeSettings != null && (activeSettings.TrayHoverEnabled ?? true),
+                    activeSettings != null ? activeSettings.AutoHide : -1));
+            }
+            catch (Exception)
+            {
             }
         }
 
@@ -996,6 +1134,7 @@ namespace TrayProbe
                 Log(AppDomain.CurrentDomain.BaseDirectory, "REBIND success taskbars=" + TaskbarTakeover.Taskbars.Count);
                 TaskbarTakeover.Tick();
                 if (activeSettings != null) RequestAppMeasure();
+                RequestAutoHideAlign("rebind success");
             }
             else if (rebindAttempts < rebindLimit)
             {
@@ -1102,6 +1241,7 @@ namespace TrayProbe
                 if (takeoverMode)
                 {
                     TaskbarTakeover.Tick();
+                    LogRegionActions();
                     if (takeoverSeconds > 0 && (DateTime.UtcNow - takeoverStartedUtc).TotalSeconds >= takeoverSeconds)
                     {
                         ShutdownRestore("takeover test timeout");
@@ -1512,6 +1652,9 @@ namespace TrayProbe
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
         private static extern IntPtr GetModuleHandle(string name);
+
+        [DllImport("kernel32.dll")]
+        private static extern ulong GetTickCount64();
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern ushort RegisterClassEx(ref WNDCLASSEX wc);
