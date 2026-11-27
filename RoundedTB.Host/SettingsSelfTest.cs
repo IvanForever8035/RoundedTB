@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 namespace TrayProbe
 {
@@ -63,6 +64,36 @@ namespace TrayProbe
             Require(defaults != null, "parse minimal settings");
             Require(defaults.FillOnMaximise && defaults.FillOnTaskSwitch && defaults.ShouldFillOnTaskSwitch,
                 "legacy fill settings default to WPF Windows 11 defaults");
+            RuntimeSettings createdDefaults = RuntimeSettings.Parse(RuntimeSettings.CreateDefaultJson());
+            Require(createdDefaults != null && !createdDefaults.IsDynamic
+                && (createdDefaults.ShowAppList ?? false) && !createdDefaults.ShowSegmentsOnHover
+                && createdDefaults.Simple.CornerRadius == 7 && createdDefaults.Simple.MarginTop == 3
+                && createdDefaults.App.MarginRight == 3 && createdDefaults.Tray.MarginLeft == 3
+                && createdDefaults.AutoHide == 0,
+                "host default config matches safe WPF Windows 11 defaults");
+
+            string temporaryDirectory = Path.Combine(Path.GetTempPath(), "RoundedTB-default-test-" + Guid.NewGuid().ToString("N"));
+            string temporaryConfig = Path.Combine(temporaryDirectory, "rtb.json");
+            try
+            {
+                bool wasCreated;
+                RuntimeSettings loaded = RuntimeSettings.LoadOrCreateDefault(temporaryConfig, out wasCreated);
+                Require(loaded != null && wasCreated && File.Exists(temporaryConfig),
+                    "missing config is created and loaded by the host");
+                loaded = RuntimeSettings.LoadOrCreateDefault(temporaryConfig, out wasCreated);
+                Require(loaded != null && !wasCreated, "existing config is preserved on the next load");
+
+                File.WriteAllText(temporaryConfig, "{bad");
+                loaded = RuntimeSettings.LoadOrCreateDefault(temporaryConfig, out wasCreated);
+                Require(loaded == null && !wasCreated && File.ReadAllText(temporaryConfig) == "{bad",
+                    "malformed existing config is not overwritten by defaults");
+            }
+            finally
+            {
+                try { if (Directory.Exists(temporaryDirectory)) Directory.Delete(temporaryDirectory, true); }
+                catch (Exception) { }
+            }
+
             RuntimeSettings disabledFill = RuntimeSettings.Parse("{\"FillOnMaximise\":false,\"FillOnTaskSwitch\":true}");
             Require(disabledFill != null && !disabledFill.ShouldFillOnTaskSwitch,
                 "task-switch fill depends on maximise fill");

@@ -40,6 +40,82 @@ namespace TrayProbe
             }
         }
 
+        /// <summary>
+        /// Create a safe Windows 11 default only when the file is absent. A
+        /// present but malformed config is preserved for user recovery.
+        /// </summary>
+        internal static RuntimeSettings LoadOrCreateDefault(string path, out bool created)
+        {
+            created = false;
+            RuntimeSettings existing = Load(path);
+            if (existing != null || File.Exists(path)) return existing;
+
+            string directory = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(directory)) return null;
+            string temporary = path + ".default-" + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(temporary, CreateDefaultJson());
+                try
+                {
+                    File.Move(temporary, path);
+                    created = true;
+                }
+                catch (IOException)
+                {
+                    // Another process (e.g. Settings-only) may have created it.
+                    if (!File.Exists(path)) return null;
+                }
+                return Load(path);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+            finally
+            {
+                try { if (File.Exists(temporary)) File.Delete(temporary); }
+                catch (Exception) { }
+            }
+        }
+
+        private static Dictionary<string, object> DefaultLayout()
+        {
+            Dictionary<string, object> layout = new Dictionary<string, object>();
+            layout["CornerRadius"] = 7;
+            layout["MarginLeft"] = 3;
+            layout["MarginTop"] = 3;
+            layout["MarginBottom"] = 3;
+            layout["MarginRight"] = 3;
+            return layout;
+        }
+
+        internal static string CreateDefaultJson()
+        {
+            Dictionary<string, object> root = new Dictionary<string, object>();
+            root["Version"] = -1;
+            root["SimpleTaskbarLayout"] = DefaultLayout();
+            root["DynamicAppListLayout"] = DefaultLayout();
+            root["DynamicTrayLayout"] = DefaultLayout();
+            root["DynamicWidgetsLayout"] = DefaultLayout();
+            root["IsDynamic"] = false;
+            root["IsCentred"] = false;
+            root["IsWindows11"] = true;
+            root["ShowTray"] = false;
+            root["ShowWidgets"] = false;
+            root["ShowAppList"] = true;
+            root["TrayHoverEnabled"] = true;
+            root["CompositionCompat"] = false;
+            root["IsNotFirstLaunch"] = false;
+            root["FillOnMaximise"] = true;
+            root["FillOnTaskSwitch"] = true;
+            root["ShowSegmentsOnHover"] = false;
+            root["AutoHide"] = 0;
+            root["KeepInBackground"] = true;
+            return JsonSerializer.Serialize(root);
+        }
+
         internal static RuntimeSettings Parse(string json)
         {
             if (string.IsNullOrEmpty(json)) return null;

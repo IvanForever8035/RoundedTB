@@ -26,7 +26,13 @@ namespace TrayProbe
                 "no enabled target needs no geometry");
             Require(Program.IsGeometrySatisfied(false, true, true, 0, 1618),
                 "tray-only readiness ignores app geometry");
-            return "PASS: rebind policy, startup deferral, and geometry readiness gating";
+            Require(Program.StartupCommandTargetsCurrentExe("\"D:\\Stable\\RoundedTBHost.exe\"",
+                "D:\\Stable\\RoundedTBHost.exe"), "quoted startup path matches the current exe");
+            Require(!Program.StartupCommandTargetsCurrentExe("\"D:\\Stable\\RoundedTBHost.exe\"",
+                "D:\\Test\\RoundedTBHost.exe"), "startup path mismatch is detected without rewriting it");
+            Require(Program.StartupCommandTargetsCurrentExe("D:\\Stable Folder\\RoundedTBHost.exe --arg",
+                "D:\\Stable Folder\\RoundedTBHost.exe"), "unquoted command path is compared through the exe suffix");
+            return "PASS: rebind policy, startup deferral, geometry readiness, and startup target path checks";
         }
 
         private static void Require(bool condition, string check)

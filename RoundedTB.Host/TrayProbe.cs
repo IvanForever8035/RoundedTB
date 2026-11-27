@@ -303,7 +303,12 @@ namespace TrayProbe
                 RoundedTB.AppPaths.Prepare();
                 string configPath = RoundedTB.AppPaths.ConfigPath;
                 settingsPath = configPath;
-                activeSettings = RuntimeSettings.Load(configPath);
+                bool createdDefaultConfig;
+                activeSettings = RuntimeSettings.LoadOrCreateDefault(configPath, out createdDefaultConfig);
+                if (createdDefaultConfig)
+                {
+                    Log(baseDir, "SETTINGS defaults created: " + configPath);
+                }
                 TaskbarTakeover.SetCompositionCompatibility(activeSettings != null && activeSettings.CompositionCompat);
                 TaskbarTakeover.SetFillBehavior(activeSettings != null && activeSettings.FillOnMaximise,
                     activeSettings != null && activeSettings.ShouldFillOnTaskSwitch);
@@ -802,14 +807,62 @@ namespace TrayProbe
                 + " showApp=" + (loaded.ShowAppList ?? true) + " trayHover=" + (loaded.TrayHoverEnabled ?? true));
         }
 
-        private static bool IsStartupEnabled()
+        private static string GetStartupCommand()
         {
             try
             {
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(RunKey))
                 {
-                    return key != null && key.GetValue(RunValue) != null;
+                    return key != null ? key.GetValue(RunValue) as string : null;
                 }
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        internal static bool StartupCommandTargetsCurrentExe(string command, string currentExe)
+        {
+            if (string.IsNullOrWhiteSpace(command) || string.IsNullOrWhiteSpace(currentExe)) return false;
+            string target = command.Trim();
+            if (target.StartsWith("\"", StringComparison.Ordinal))
+            {
+                int closeQuote = target.IndexOf('"', 1);
+                if (closeQuote <= 1) return false;
+                target = target.Substring(1, closeQuote - 1);
+            }
+            else
+            {
+                int exeEnd = target.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
+                if (exeEnd >= 0) target = target.Substring(0, exeEnd + 4);
+                else
+                {
+                    int argumentStart = target.IndexOf(' ');
+                    if (argumentStart >= 0) target = target.Substring(0, argumentStart);
+                }
+            }
+
+            try
+            {
+                target = Environment.ExpandEnvironmentVariables(target);
+                return string.Equals(Path.GetFullPath(target), Path.GetFullPath(currentExe),
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private static bool IsStartupEnabled()
+        {
+            string command = GetStartupCommand();
+            if (string.IsNullOrEmpty(command)) return false;
+            try
+            {
+                string currentExe = Process.GetCurrentProcess().MainModule.FileName;
+                return StartupCommandTargetsCurrentExe(command, currentExe);
             }
             catch (Exception)
             {
@@ -1050,13 +1103,17 @@ namespace TrayProbe
             try
             {
                 string state = taskbars.Count > 0 ? TaskbarTakeover.DescribeState(taskbars[0].Hwnd) : "n/a";
+                string command = GetStartupCommand();
+                string currentExe = Process.GetCurrentProcess().MainModule.FileName;
+                bool startupTargetCurrent = StartupCommandTargetsCurrentExe(command, currentExe);
                 Log(baseDir, string.Format(
-                    "STARTUP context uptimeMs={0} session={1} classify={2} {3} hover={4} showApp={5} trayHover={6} autoHide={7}",
+                    "STARTUP context uptimeMs={0} session={1} classify={2} {3} hover={4} showApp={5} trayHover={6} autoHide={7} startupTargetCurrent={8} currentExe=\"{9}\" startupCommand=\"{10}\"",
                     GetTickCount64(), Process.GetCurrentProcess().SessionId, state, DescribeGeometry(),
                     activeSettings != null && activeSettings.ShowSegmentsOnHover,
                     activeSettings != null && (activeSettings.ShowAppList ?? true),
                     activeSettings != null && (activeSettings.TrayHoverEnabled ?? true),
-                    activeSettings != null ? activeSettings.AutoHide : -1));
+                    activeSettings != null ? activeSettings.AutoHide : -1,
+                    startupTargetCurrent, currentExe, command ?? "<none>"));
             }
             catch (Exception)
             {
@@ -1311,19 +1368,27 @@ namespace TrayProbe
             IntPtr menu = CreatePopupMenu();
             if (menu == IntPtr.Zero) return;
 
-            if (activeSettings != null && activeSettings.IsDynamic)
+            if (activeSettings != null)
             {
-                bool tray = activeSettings.ShowSegmentsOnHover
-                    ? (activeSettings.TrayHoverEnabled ?? true)
-                    : activeSettings.ShowTray;
-                AppendMenu(menu, MF_STRING | (tray ? MF_CHECKED : 0), 10,
-                    activeSettings.ShowSegmentsOnHover ? "Tray hover" : "Show tray");
-                AppendMenu(menu, MF_STRING | ((activeSettings.ShowAppList ?? true) ? MF_CHECKED : 0), 11, "App segment");
+                if (activeSettings.IsDynamic)
+                {
+                    bool tray = activeSettings.ShowSegmentsOnHover
+                        ? (activeSettings.TrayHoverEnabled ?? true)
+                        : activeSettings.ShowTray;
+                    AppendMenu(menu, MF_STRING | (tray ? MF_CHECKED : 0), 10,
+                        activeSettings.ShowSegmentsOnHover ? "Tray hover" : "Show tray");
+                    AppendMenu(menu, MF_STRING | ((activeSettings.ShowAppList ?? true) ? MF_CHECKED : 0), 11, "App segment");
+                    AppendMenu(menu, MF_SEPARATOR, 0, null);
+                }
                 if (!string.IsNullOrEmpty(settingsExePath))
                 {
                     AppendMenu(menu, MF_STRING, 13, "Settings...");
                 }
-                AppendMenu(menu, MF_STRING | (IsStartupEnabled() ? MF_CHECKED : 0), 14, "Start with Windows");
+                string startupCommand = GetStartupCommand();
+                bool startupForThisExe = IsStartupEnabled();
+                string startupLabel = !string.IsNullOrEmpty(startupCommand) && !startupForThisExe
+                    ? "Start with Windows (points elsewhere; click to use this EXE)" : "Start with Windows";
+                AppendMenu(menu, MF_STRING | (startupForThisExe ? MF_CHECKED : 0), 14, startupLabel);
                 AppendMenu(menu, MF_SEPARATOR, 0, null);
             }
 
