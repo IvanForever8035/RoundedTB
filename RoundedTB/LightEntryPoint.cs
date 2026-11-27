@@ -20,12 +20,42 @@ namespace RoundedTB
             return false;
         }
 
+        /// <summary>
+        /// The host passes its process id so the settings window can close
+        /// itself when the resident host exits.
+        /// </summary>
+        internal static bool TryGetHostPid(string[] args, out int pid)
+        {
+            pid = 0;
+            if (args == null) return false;
+            const string prefix = "--host-pid";
+            for (int i = 0; i < args.Length; i++)
+            {
+                string argument = args[i];
+                string value = null;
+                if (string.Equals(argument, prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (i + 1 >= args.Length) return false;
+                    value = args[i + 1];
+                }
+                else if (argument.StartsWith(prefix + "=", StringComparison.OrdinalIgnoreCase))
+                {
+                    value = argument.Substring(prefix.Length + 1);
+                }
+                if (value == null) continue;
+                return int.TryParse(value, out pid) && pid > 0;
+            }
+            return false;
+        }
+
         [STAThread]
         private static int Main(string[] args)
         {
             if (IsSettingsMode(args))
             {
                 App.SettingsOnly = true;
+                int hostPid;
+                if (TryGetHostPid(args, out hostPid)) App.HostProcessId = hostPid;
                 App app = new App();
                 app.InitializeComponent();
                 return app.Run();

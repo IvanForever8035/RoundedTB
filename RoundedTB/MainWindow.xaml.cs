@@ -80,6 +80,7 @@ namespace RoundedTB
             if (App.SettingsOnly)
             {
                 mainTitleBar.UseNotifyIcon = false;
+                WatchHostProcess();
             }
 
             // Check OS build, as behaviours rather-annoyingly differ between Windows 11 and Windows 10
@@ -1013,6 +1014,46 @@ namespace RoundedTB
                 Left = Math.Max(0, (SystemParameters.PrimaryScreenWidth - width) / 2);
                 Top = Math.Max(0, (SystemParameters.PrimaryScreenHeight - height) / 2);
             }
+        }
+
+        /// <summary>
+        /// The tray settings window belongs to the resident host process. When
+        /// that host exits (tray Exit, sign-out or a crash) the settings window
+        /// must not be left behind.
+        /// </summary>
+        private void WatchHostProcess()
+        {
+            int hostPid = App.HostProcessId;
+            if (hostPid <= 0) return;
+
+            System.Threading.Thread watcher = new System.Threading.Thread(delegate ()
+            {
+                try
+                {
+                    using (Process host = Process.GetProcessById(hostPid))
+                    {
+                        host.WaitForExit();
+                    }
+                }
+                catch (Exception)
+                {
+                    // Host already gone: close the settings window right away.
+                }
+
+                try
+                {
+                    Dispatcher.BeginInvoke(new Action(delegate ()
+                    {
+                        Close();
+                    }));
+                }
+                catch (Exception)
+                {
+                }
+            });
+            watcher.IsBackground = true;
+            watcher.Name = "RoundedTB host watcher";
+            watcher.Start();
         }
 
         private void NotifyIcon_Open(object sender, RoutedEventArgs e)

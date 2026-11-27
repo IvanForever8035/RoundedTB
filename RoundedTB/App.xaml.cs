@@ -14,6 +14,7 @@ namespace RoundedTB
     public partial class App : Application
     {
         internal static bool SettingsOnly;
+        internal static int HostProcessId;
 
         protected override void OnStartup(StartupEventArgs e)
         {
