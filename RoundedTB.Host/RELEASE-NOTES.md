@@ -1,48 +1,33 @@
-# RoundedTB Light v0.1.0
+# RoundedTB Light v0.1.1
 
-`RoundedTBHost.exe` is published directly as the release asset — there is no ZIP
-archive. Download the EXE and run it; `LICENSE` and `THIRD-PARTY-NOTICES.txt` are
-separate assets on this release page, and `RoundedTBHost.exe.sha256` contains the
-checksum of the executable.
+A maintenance release for dynamic hover, Explorer startup timing, and first-run recovery.
 
-The EXE is fully standalone: nothing is written beside it, so it can be placed in
-any folder on its own. Per-user files live together in
-`%LOCALAPPDATA%\RoundedTB\`:
+## Fixes
 
-- `rtb.json` — settings shared by host and settings UI.
-- `rtb.log` — settings UI log.
-- `rtb-host.log` — host diagnostics (startup, takeover, autohide alignment).
+- Restrict dynamic hover reveal to enabled segments. Disabled app segments and gaps no longer expose the whole taskbar.
+- Preserve the last visible segment region for Explorer's native retract animation; do not replace regions mid-animation.
+- Measure Windows 11 tray bounds using UI Automation when the legacy `TrayNotifyWnd` has zero width while auto-hidden.
+- Wait and retry when Explorer has not yet created the taskbar at sign-in. Retry missing app/tray geometry, refresh during initialization, and preserve previous valid measurements.
+- Temporarily keep Explorer's native edge available when enabled target geometry is unknown, then restore segment clipping once measured. This prioritizes access to the taskbar during initialization.
+- Create default settings if `rtb.json` is missing, including after clearing app data. Existing malformed settings are preserved rather than overwritten.
+- Close host-launched Settings windows when their owning host exits.
+- Check the registered startup command against the current EXE path and show a tray-menu warning when they differ. Starting an EXE from another directory does not silently overwrite an existing startup command; select **Start with Windows** in the intended instance to register it.
+- Make **Settings...** and **Start with Windows** available in both simple and dynamic modes.
+- Add startup, geometry-readiness and region-action diagnostics and regression self-tests.
+- Correct the executable's embedded version metadata to `0.1.1`.
 
-An existing `%LOCALAPPDATA%\rtb.json` from older builds is copied into the new
-folder on first run; the old file is left in place. `probe.log` beside older EXEs
-can be deleted.
+## Download and requirements
 
-The same executable runs the lightweight Win32 tray host by default and opens the
-WPF settings window when relaunched with `--settings-only`, in a separate child
-process. Closing settings leaves the host running.
+Download **RoundedTBHost.exe** directly. No ZIP is required. The release also provides `RoundedTBHost.exe.sha256`, `LICENSE`, and `THIRD-PARTY-NOTICES.txt`.
 
-## Verified scope
+The same EXE runs the Win32 tray host by default and the independent WPF Settings UI with `--settings-only`. It can live in any directory and writes no runtime files beside itself. Settings and logs are in `%LOCALAPPDATA%\RoundedTB\`; an older `%LOCALAPPDATA%\rtb.json` is migrated when needed.
 
-Windows 11, single monitor, bottom taskbar:
-- User-confirmed bottom-edge hover reveal and retract.
-- Hover reveal field-tested while an elevated terminal had focus.
-- Settings window opens from the tray and Apply reloads the host.
-- Normal host exit restores taskbar state.
+Requires Windows 11 and **.NET 9 Windows Desktop Runtime x64**. This is a framework-dependent EXE, not a self-contained runtime bundle. .NET 9 reached end of support on 2026-11-10 and remains an unsupported dependency.
 
-## Not verified
+## Validation and limitations
 
-Multiple displays and mixed DPI, top/left/right docked taskbars, maximise and
-Alt+Tab taskbar fill, TranslucentTB compatibility, Explorer restart handling, and
-recovery after force-killing the host. Use the tray Exit command for a clean
-restore.
+The user reports no current issues in their tested single-monitor, bottom-taskbar environment after the tray measurement fix. This is not a complete platform certification. CI builds and safe self-tests do not replace interactive Explorer testing.
 
-## Requirements and runtime warning
+Multiple displays/mixed DPI, non-bottom docking, maximize/Alt+Tab fill, TranslucentTB integration, Explorer restart, and recovery after force termination remain outside the verified matrix. Use tray **Exit** for a clean restore before replacing the EXE.
 
-Requires the **.NET 9 Windows Desktop Runtime (x64)**. The EXE is framework-
-dependent and does not embed or install that runtime. .NET 9 reached end of
-support on 2026-11-10, so this release uses an unsupported runtime. A future
-release should move to a supported LTS runtime or a self-contained deployment.
-
-This is the lightweight-host release line, not a replacement for the WPF stable
-release `v1.0.6`. The stable WPF line remains the recommended full-featured build
-until the Light platform matrix above is verified.
+This release does **not** replace WPF `v1.0.6` as GitHub Latest and is not a full replacement for that stable line.

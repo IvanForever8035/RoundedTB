@@ -171,4 +171,5 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost.exe" "${{ github.workspace }}\RoundedTBHost.exe.sha256" "${{ github.workspace }}\LICENSE" "${{ github.workspace }}\RoundedTB.Host\THIRD-PARTY-NOTICES.txt" --title "RoundedTB Light v0.1.0" --latest=false --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"
+        $version = "${{ github.ref_name }}" -replace '^light-v', ''
+        gh release create "${{ github.ref_name }}" "${{ github.workspace }}\RoundedTBHost.exe" "${{ github.workspace }}\RoundedTBHost.exe.sha256" "${{ github.workspace }}\LICENSE" "${{ github.workspace }}\RoundedTB.Host\THIRD-PARTY-NOTICES.txt" --title "RoundedTB Light v$version" --latest=false --notes-file "${{ github.workspace }}\RoundedTB.Host\RELEASE-NOTES.md"
