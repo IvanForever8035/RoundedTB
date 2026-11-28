@@ -3,8 +3,8 @@ using System;
 namespace TrayProbe
 {
     /// <summary>
-    /// Per-taskbar capture state for the auto-hide alignment (D4/D5). Kept as a
-    /// reference type so the pure policy can mutate it in place.
+    /// Per-taskbar capture state for auto-hide alignment. Kept as a reference
+    /// type so the pure policy can mutate it in place.
     /// </summary>
     internal sealed class AutoHideRecord
     {
@@ -102,7 +102,7 @@ namespace TrayProbe
 
     /// <summary>
     /// Coalescing timer: a burst of events pushes the due time forward, so the
-    /// caller acts once after the burst goes quiet (D5's ~1 s debounce).
+    /// caller acts once after the burst goes quiet.
     /// </summary>
     internal sealed class Debouncer
     {

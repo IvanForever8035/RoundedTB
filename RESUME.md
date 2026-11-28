@@ -1,52 +1,27 @@
-# RESUME · RoundedTB 项目续接入口
-最后更新：2026-11-24
-当前阶段：Light 单 EXE 实验预发布故障排查与平台验收
+# RESUME · RoundedTB
+最后更新：2026-11-28
+当前阶段：Light `v0.1.1` 已正式发布，发布资产与 SHA256 已核对；用户当前使用暂未发现问题
 
-> **给 Agent**：读到本文件后按顺序执行——
-> 1. 读同目录 `CLAUDE.md`；
-> 2. 读 `docs/STATE.md` 与 `docs/DECISIONS.md`；按当前任务需要再读 `docs/plans/00-overview.md` 或 `docs/LESSONS.md`；
-> 3. 检查 `git status --short --branch` 与 `git log --oneline -10`；
-> 4. 输出 ≤15 行简报：项目 / 当前阶段与进度 / 关键决策 / 下一步 / 待确认点；
-> 5. **停住**等用户确认。若文档与实际代码不符先报告，不按旧状态硬干。
+> 续接时先读 `CLAUDE.md`，检查 `git status --short --branch` 和近期提交，再读 `docs/STATE.md`。若工作区状态或实际代码与文档不符，先报告并按实际情况更新，不沿用猜测。
 
-## 一句话目标
+## 当前项目
 
-在 Windows 11 上维护 RoundedTB WPF stable 线，并逐步把已验证的轻量宿主发展为可支持的 Light 版本。
+- WPF `v1.0.6` 保持 GitHub Latest；Light `v0.1.1` 已正式发布，不标 Latest，Release 附件与 SHA256 已核对。
+- Light 是 .NET 9 framework-dependent 单 EXE，需要 .NET 9 Windows Desktop Runtime x64（已 EOL）；不是 WPF 稳定版的全面替代。
+- EXE 可放任意目录，无固定安装路径；配置与日志位于 `%LOCALAPPDATA%\RoundedTB\`。
 
-## 当前状态
+## 当前进度
 
-- 已完成：WPF stable `v1.0.6`；Light 宿主源码进仓库；单 EXE 双进程 `.4` prerelease 已发布；旧 WPF Release 已补 LICENSE/third-party notices。
-- 已完成：High integrity Terminal 聚焦时悬停几乎不触发的问题已修复（`2e87c99`，每 tick 用 `GetCursorPos` 采样），现场 A/B 通过，用户确认正常。
-- 已完成：`light-v0.1.0-preview.5` 预发布（hover 修复；ZIP 只含程序 EXE，许可证作为独立 Release 资产）。Settings 面板已由用户确认可正常打开。
-- 已完成：`v0.1.0` 正式 Release：直发 `RoundedTBHost.exe`（无 ZIP），`LICENSE`/`THIRD-PARTY-NOTICES.txt`/SHA256 为独立资产，非预发布；WPF `v1.0.6` 仍为 Latest。
-- 下一步：继续多显示器/非底边/TTB/Explorer 重启等验收。
+- hover 按启用分段触发；离开分段后保留最后 region 交由 Explorer 原生 retract，稳定隐藏后再清空，动画期间不重设 region。
+- 几何 readiness 门控在必要坐标缺失时清除自定义 region，交还 Explorer 并重试；保留已有有效测量。隐藏态 `TrayNotifyWnd` 零宽时通过 UIA 测量托盘，避免一直等待原生窗口矩形。
+- 缺配置时创建安全默认值，现有坏配置不覆盖；设置子进程通过 `--host-pid` 随 host 退出关闭。
+- 自启动路径由启用它的实例写入，日志与托盘动态核对是否指向当前 EXE，不自动改写。
+- 用户当前使用暂未发现问题，不等于全平台验收。多显示器/混合 DPI、非底边停靠、最大化填充、TranslucentTB、Explorer 重启及强杀恢复仍未验收；真实 Explorer/taskbar takeover 测试需先获用户明确授权。
 
-## 必须保留的决策
+## 入口
 
-- WPF `v1.0.6` 是稳定线；Light `light-v0.1.0-preview.4` 是实验预发布。
-- Light 单程序 EXE 保留 host 与 settings 两进程，入口参数 `--settings-only`。
-- Light framework-dependent 目标 net9.0-windows，目标机需 .NET 9 Desktop Runtime x64；.NET 9 已 EOL。
-- `.4` Settings 面板仍有用户报告故障；不得当成已修复或发布稳定版。
-- 用户启动项仍指向旧 `F:\Program Files\Claude\RoundedTB-light\RoundedTBHost.exe`；迁移需另外确认。
-- Explorer/任务栏真实测试需授权；测试后恢复 region 并验证 host/rollback。
-
-## 本阶段相关文件
-
-- 状态：`docs/STATE.md`
-- 决策：`docs/DECISIONS.md`
-- 阶段计划：`docs/plans/00-overview.md`
-- Settings WPF：`RoundedTB/LightEntryPoint.cs`、`RoundedTB/App.xaml.cs`、`RoundedTB/MainWindow.xaml.cs`
-- Unified project：`RoundedTB/RoundedTB.Light.csproj`
-- Host：`RoundedTB.Host/TrayProbe.cs`、`RuntimeSettings.cs`、`build-host.ps1`
-
-## 可选文件
-
-- `docs/LESSONS.md`：修改 auto-hide/region 前查阅。
-- `RoundedTB.Host/README.md`、`RELEASE-NOTES.md`：更新/审核 Light 包文档时查阅。
-
-## 已知问题 / 风险
-
-- `.4` Settings UI 现场启动未通过确认；只通过 CI 初始化 self-test。
-- `.4` 包内含许可证文件；`.5` 起 ZIP 只含程序 EXE，许可证作为 Release 独立资产。
-- 多显示器、非底边、TTB、最大化填充、Explorer restart、强杀恢复未验收。
-- Light 单 EXE 使用 EOL .NET 9；非自包含发布需安装 Desktop Runtime。
+- 项目约束与代码结构：`CLAUDE.md`
+- 当前事实与验收状态：`docs/STATE.md`
+- 当前设计约束：`docs/DECISIONS.md`
+- 可复用工程经验：`docs/LESSONS.md`
+- 当前架构与测试范围：`docs/plans/00-overview.md`
